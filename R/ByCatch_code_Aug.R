@@ -21,7 +21,7 @@
 # Outputs:                                                                  #
 # Running the code generates:                                               #
 # 1. Plot with original proportions of catch by species to total catch      #
-#    and proportions based in specified weights                              #
+#    and proportions based in specified weights                             #
 # 2. Correlation plot among Effort, target and bycatch species              #    
 # 3. Maps with original data                                                #
 # 4. running the function DoCalcs generates:                                #
