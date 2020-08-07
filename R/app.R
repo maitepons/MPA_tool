@@ -563,7 +563,7 @@ server <- function(input, output, session) {
     Tweights<-read.csv(input$file2$datapath,sep=input$sep2,nrows = 1)%>%
       select_if(~ !any(is.na(.))) 
     
-    BCweights<-read.csv(input$file2$datapath,ep=input$sep2,nrows = 2,skip = 2)%>%
+    BCweights<-read.csv(input$file2$datapath,sep=input$sep2,nrows = 2,skip = 2)%>%
       select_if(~ !any(is.na(.))) 
     
     NT<-ncol(Tweights) # number of target species 
