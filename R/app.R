@@ -556,7 +556,7 @@ server <- function(input, output, session) {
     D<-read.csv(input$file1$datapath,
                    header = TRUE,
                    sep =input$sep1)
-    
+    D<-D[complete.cases(D),]
     if (is.null(input$file2))
       return(NULL)
     
