@@ -54,6 +54,7 @@ library(dplyr)
 dir.create(path=paste(getwd(),"Results",sep="/"),showWarnings = FALSE)    # 
 ###########################################################################
 D<-read.csv("Data.csv",header = T) 
+D<-D[complete.cases(D),] # remove rows with NAs
 
 Tweights<-read.csv("Weights.csv",nrows = 1)%>%
   select_if(~ !any(is.na(.))) 
