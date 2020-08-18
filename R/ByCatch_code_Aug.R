@@ -54,7 +54,7 @@ library(dplyr)
 dir.create(path=paste(getwd(),"Results",sep="/"),showWarnings = FALSE)    # 
 ###########################################################################
 D<-read.csv("Data.csv",header = T) 
-D<-D[complete.cases(D),] # remove rows with NAs
+D<-D[complete.cases(D),]
 
 Tweights<-read.csv("Weights.csv",nrows = 1)%>%
   select_if(~ !any(is.na(.))) 
@@ -96,38 +96,44 @@ rel_wt<-tmp_wt/sum(tmp_wt)
 # sum(rel_wt)
 
 # plot weighted and unweighted proportions
-D_nw<-D # unweighted
+D_w<-D # keep D unweighted
 
-for (i in 1:nrow(D)){
-  D[i,col.BC]<- D[i,col.BC]*rel_wb #asign bycatch weights
-  D[i,col.T]<- D[i,col.T]*rel_wt   #asign target weights
+for (i in 1:nrow(D_w)){
+  D_w[i,col.BC]<- D_w[i,col.BC]*rel_wb #asign bycatch weights
+  D_w[i,col.T]<- D_w[i,col.T]*rel_wt   #asign target weights
 } 
 
 pdf(file=paste0("Results/","Proportions",Fishery_name,".pdf"),width = 8,height = 6)
 par(mfrow=c(1,2),oma=c(5,1,1,1),mar=c(1,4,2,0))
-plot(as.numeric(D_nw %>% summarise(across(.cols=all_of(TNames),sum)))/sum(D_nw[,TNames]),xaxt='n',
-     col="blue",pch=19,xlab="",ylab="")
-points(as.numeric(D %>% summarise(across(.cols=all_of(TNames),sum)))/sum(D[,TNames]),col="red",pch=19)
+plot(as.numeric(D %>% summarise(across(.cols=all_of(TNames),sum)))/sum(D[,TNames]),xaxt='n',
+     col="blue",pch=19,xlab="",ylab="Relative proportion")
+points(as.numeric(D_w %>% summarise(across(.cols=all_of(TNames),sum)))/sum(D_w[,TNames]),col="red",pch=19)
 axis(side = 1, at = c(1:NT),labels = c(TNames),las=2)
 title(main="Target",line = 0.5)
 legend("topright",col=c("blue","red"),pch=19,legend = c("Unweighted","Weighted"))
 
-plot(as.numeric(D_nw %>% summarise(across(.cols=all_of(BCNames),sum)))/sum(D_nw[,BCNames]),xaxt='n',
+plot(as.numeric(D %>% summarise(across(.cols=all_of(BCNames),sum)))/sum(D[,BCNames]),xaxt='n',
      col="blue",pch=19,xlab="",ylab="")
-points(as.numeric(D %>% summarise(across(.cols=all_of(BCNames),sum)))/sum(D[,BCNames]),col="red",pch=19)
+points(as.numeric(D_w %>% summarise(across(.cols=all_of(BCNames),sum)))/sum(D_w[,BCNames]),col="red",pch=19)
 axis(side = 1, at = c(1:NBC),labels = c(BCNames),las=2)
 title(main="Bycatch",line = 0.5)
 dev.off()
 
-D <- D %>% 
+D_w <- D_w %>% 
   mutate(TBC.w=rowSums(.[BCNames]),# total weighted By-Catch
          Target.w=rowSums(.[TNames])) %>% # total weighted By-Catch
   filter(Target.w>0)# eliminate sets with target catch =0 to be able to calculate the proportion of Bycatch/target
-
-###### correlation analysis 
-
+############
+D <- D %>% 
+  mutate(TBC=rowSums(.[BCNames]),# total weighted By-Catch
+         Target=rowSums(.[TNames])) %>% # total weighted By-Catch
+  filter(Target>0)
+# add to D weighted columns for total bycatch and total target
+D$TBC.w<-D_w$TBC.w
+D$Target.w<-D_w$Target.w
+###### correlation plot
 pdf(file=paste0("Results/","Corr_plot_",Fishery_name,".pdf"))
-ggcorrplot(round(cor(D[,-c(1:4)]), 1), hc.order = FALSE, type = "lower",lab=TRUE,
+ggcorrplot(round(cor(D[,-c(1:4,ncol(D)-1,ncol(D))]), 1), hc.order = FALSE, type = "lower",lab=TRUE,
            outline.col = "white")
 dev.off()
 
@@ -141,12 +147,34 @@ summary(Tmp)
 str(Tmp)
 
 # Maps
-pdf(paste0("Results/","Maps_BCW_N",Fishery_name,".pdf"),width=10, height = 9,onefile=F)
+world <- map_data("world")
+head(world)
+i=which(world$long<0)
+world$long[i]<- world$long[i]+ 360 #  rescale to 360 degrees to have all positive values for longitude
+world$lat<- world$lat+ 90  #  rescale to 180 degrees to have all positive values for latitude
+
+world.cut<-world[world$lat > min(D$Lat)-10 & world$lat < max(D$Lat)+10 ,]
+world.cut<-world.cut[world.cut$long > min(D$Lon)-10 & world.cut$long < max(D$Lon)+10 ,]
+
+#This creates a quick and dirty world map - playing around with the themes, aesthetics, and device dimensions is recommended!
+worldmap <- ggplot(world.cut, aes(x=long, y=lat)) +
+  geom_polygon(aes(group=group)) +
+  theme(panel.background = element_rect(fill="skyblue", colour="skyblue"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  coord_equal()
+
+pdf(paste0("Results/","Maps_data",Fishery_name,".pdf"),width=10, height = 9,onefile=F)
 Tmp %>% group_by(variable) %>%
-  do(gg = {ggplot(., aes(Lon, Lat, fill = value)) +
-      geom_tile() + facet_grid(~variable) +
-      scale_fill_gradient(low = "green", high = "red")+
-      theme(legend.position = "top")}) %>%
+  do(gg = {
+    worldmap +
+      geom_tile(., mapping=aes(Lon, Lat, fill = value)) +
+      facet_grid(~variable) +
+      scale_fill_gradient(low = "white", high = "red")+
+      theme(panel.background = element_rect(fill="skyblue", colour="skyblue"),
+            panel.grid.major = element_blank(),
+            panel.grid.minor = element_blank(),legend.position = "top")
+  }) %>%
   .$gg %>% arrangeGrob(grobs = ., nrow = 3) %>% grid.arrange()
 dev.off()
 
@@ -163,7 +191,7 @@ GlobalEffort<-sum(D$Effort)
 FindClose<-function(NClose,D,minimize.by="prop",mosaic=F,by.month=FALSE){
   if (by.month==FALSE){
     
-    col.BC<-seq(from=ncol(D)- NBC -1 ,to=ncol(D)-2)
+    col.BC<-seq(from=ncol(D)- NBC -1 ,to=ncol(D)-4)
     
     Narea<-nrow(D) # Number of areas: this is just the number of rows in the data frame
     
@@ -193,7 +221,7 @@ FindClose<-function(NClose,D,minimize.by="prop",mosaic=F,by.month=FALSE){
           }
           if (Tbycatch>BestByCatch){ # it only replaces the Tbycatch if it is higher than the BestByCatch calculated for the previous area [a]
             BestByCatch<-Tbycatch;Closed<-TempClosed;BestLat<-lat;BestLon<-lon}
-           
+          
         } #end areas
         
       } else {
@@ -219,7 +247,7 @@ FindClose<-function(NClose,D,minimize.by="prop",mosaic=F,by.month=FALSE){
   }
   if (by.month == TRUE){
     
-     TempClosed<-array(dim=nrow(D),FALSE)
+    TempClosed<-array(dim=nrow(D),FALSE)
     
     if(minimize.by=="N"){
       Table.month<-aggregate(x=D$TBC.w,by=list(Month=D$Month),FUN=sum) # bycatch in numbers
@@ -229,7 +257,7 @@ FindClose<-function(NClose,D,minimize.by="prop",mosaic=F,by.month=FALSE){
       Table.month<-aggregate(x=D$TBC.w/D$Effort,by=list(Month=D$Month),FUN=sum) 
     }
     M<-Table.month$Month[which(Table.month$x==max(Table.month$x))]
-   
+    
     M<-M[1]  # sometimes it doesn't work if there is the same number of bycatch in different months when minimized.by="N"
     i<-which(D$Month==M)
     TempClosed[i]<-TRUE
@@ -247,7 +275,7 @@ FindClose<-function(NClose,D,minimize.by="prop",mosaic=F,by.month=FALSE){
 #FishEfficiency=F  CPUE of target species is the same in each open quadrant 
 Calculate<-function(Closed,D,FishToTC,FishEfficiency,hr,by.month) { #Closed (matrix)comes from the previous function
   
-  CPUE<-D$Target.w/D$Effort # CPUE target species
+  CPUE<-D$Target/D$Effort # CPUE target species
   
   T_CPUE<-D %>% 
     rowwise() %>% 
@@ -259,7 +287,7 @@ Calculate<-function(Closed,D,FishToTC,FishEfficiency,hr,by.month) { #Closed (mat
   TotalE<-sum(D$Effort)
   Narea<-length(Closed[[1]]) # Total number of areas (grids)
   q<-Narea*(-log(1-hr)/TotalE)  #this is the q for the target species 
-  InitialCatch<-D$Target.w 
+  InitialCatch<-D$Target 
   InitialB<-InitialCatch/(1-exp(-q*D$Effort))  #the initial biomass in each cell for the target species  
   
   
@@ -287,11 +315,11 @@ Calculate<-function(Closed,D,FishToTC,FishEfficiency,hr,by.month) { #Closed (mat
     }
     
     if(by.month==FALSE){
-      TC<-sum(D$Target.w) # catch for each target species should be the same, but effort can change 
+      TC<-sum(D$Target) # catch for each target species should be the same, but effort can change 
     }
     
-    CatchFromOpen<- sum(D$Target.w[i])  # catch in open areas 
-   
+    CatchFromOpen<- sum(D$Target[i])  # catch in open areas 
+    
     CatchFromOpen_byspecies<- D[i,] %>% summarise(across(.cols=all_of(TNames),sum))
     
     HookIncrease<-TC/CatchFromOpen 
@@ -306,7 +334,7 @@ Calculate<-function(Closed,D,FishToTC,FishEfficiency,hr,by.month) { #Closed (mat
   #######################################################################################
   #at this point we have NewEffort (check, NewEffort when FishToTC= TRUE or FALSE is the same)
   if (FishEfficiency == TRUE){ # CPUE can change 
-    Catch<- D$Target.w   # catch by area before closure
+    Catch<- D$Target   # catch by area before closure
     
     Catch_byspecies<- D %>% dplyr::select(TNames)   # catch by area before closure by species
     Abu<-Catch/(1-exp(-q*D$Effort)) #Abundance by area
@@ -321,7 +349,7 @@ Calculate<-function(Closed,D,FishToTC,FishEfficiency,hr,by.month) { #Closed (mat
           TC<-GlobalTC
         }
         if(by.month==FALSE){
-          TC<-sum(D$Target.w) # total catch for the target species should be the same, effort can change 
+          TC<-sum(D$Target) # total catch for the target species should be the same, effort can change 
         }
         ratio<-sum(NewCatch)/TC
         NewEffort<-NewEffort/ratio
@@ -344,7 +372,7 @@ Calculate<-function(Closed,D,FishToTC,FishEfficiency,hr,by.month) { #Closed (mat
   
   ByCatch <- BcByArea %>% summarise(across(BCNames,sum))
   
- 
+  
   New_TCatch_byspecies <- NewCatch_byspecies %>% summarise(across(TNames,sum))
   
   TEffort<-sum(NewEffort)
@@ -509,7 +537,7 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
       #remove the month with the higest bycatch to calculate the next one
       D2<-D2[D2$Month!=Closed[[2]],]
     }
-   
+    
     TBC<-NULL
     CPUEScaled<-NULL
     TEffortScaled<-NULL
@@ -594,17 +622,17 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
     plot(c(0,Months_closed),c(0,Months_closed),col="#BB000099",ylim=c(0,1.6),xlab="ID Months closed",type="n",
          ylab="Relative Amount",cex.main=0.8,xaxt='n',
          main=paste("Minimized by=",minimize.by,",", "Fish to TC =",FishToTC,",","Fishing Efficiency changes =",FishEfficiency))
-     axis(side = 1,at = Months_closed,labels = Closed_months)
-       
-     lines(c(0,Months_closed),BCScaled,col="#BB000099",lwd=3)
+    axis(side = 1,at = Months_closed,labels = Closed_months)
+    
+    lines(c(0,Months_closed),BCScaled,col="#BB000099",lwd=3)
     lines(c(0,Months_closed),CatchScaled,lwd=3,col="#80008099",type="b",pch=16) # purple
     lines(c(0,Months_closed),CPUEScaled,lwd=3,col="#458B0099") #green
     lines(c(0,Months_closed),TEffortScaled,lwd=3,col="#0000FF99") #blue
-
+    
     legend("bottomleft",pch=c(-1,16,-1,-1),bty = "n",
            legend=c("By-Catch","Target-Catch","Fishing Efficiency changes","Effort"),
            col=c("#BB000099","#80008099","#458B0099","#0000FF99"),lwd=2,cex=0.8)
-
+    
     # mydat <- data.frame(Months_closed=c(0,Months_closed),Closed_months=c(0,Closed_months),CatchScaled,CPUEScaled,TEffortScaled) %>% 
     #   inner_join(data.frame(var=names(BCScaled),values=data.frame(BCScaled)) %>% 
     #   group_by(var) %>% 
@@ -622,9 +650,9 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
     # lines(c(0,Months_closed),CPUEScaled,lwd=3,col="#458B0099") #green
     # lines(c(0,Months_closed),TEffortScaled,lwd=3,col="#0000FF99") #blue
     # 
-     legend("bottomleft",pch=c(-1,16,-1,-1),bty = "n",
-            legend=c("By-Catch","Target-Catch","Fishing Efficiency changes","Effort"),
-            col=c("#BB000099","#80008099","#458B0099","#0000FF99"),lwd=2,cex=0.8)
+    legend("bottomleft",pch=c(-1,16,-1,-1),bty = "n",
+           legend=c("By-Catch","Target-Catch","Fishing Efficiency changes","Effort"),
+           col=c("#BB000099","#80008099","#458B0099","#0000FF99"),lwd=2,cex=0.8)
     
     
   }
@@ -655,16 +683,19 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
       Tmp<-melt(ResArea[[y]],id.vars = c("Lat","Lon","Closure"))
       Tmp$Closure<-as.factor(Tmp$Closure)
       #
-      g<-ggplot(Tmp[Tmp$variable=="NewEffort",], aes(Lon, Lat, fill = value)) +
-        geom_tile() + facet_grid(Closure~variable) +
+      g<-worldmap+
+        geom_tile(data=Tmp[Tmp$variable=="NewEffort",], mapping=aes(Lon, Lat, fill = value)) +
+        facet_grid(Closure~variable) +
         scale_fill_gradient(low = "green", high = "red")+
         theme(legend.title = element_blank(),legend.position = "top",legend.text = element_text(size = 8),strip.text.y = element_blank())
-      gg<-ggplot(Tmp[Tmp$variable=="CPUE_Target",], aes(Lon, Lat, fill = value)) +
-        geom_tile() + facet_grid(Closure~variable) +
+      gg<-worldmap+
+        geom_tile(data=Tmp[Tmp$variable=="CPUE_Target",], mapping=aes(Lon, Lat, fill = value)) +
+        facet_grid(Closure~variable) +
         scale_fill_gradient(low = "green", high = "red")+
         theme(legend.title = element_blank(),legend.position = "top",axis.ticks = element_blank(),axis.title.y = element_blank(),axis.text.y=element_blank(),legend.text = element_text(size = 8),strip.text.y = element_blank())
-      ggg<-ggplot(Tmp[Tmp$variable=="CPUE_ByCatch",], aes(Lon, Lat, fill = value)) +
-        geom_tile() + facet_grid(Closure~variable) +
+      ggg<-worldmap+
+        geom_tile(data=Tmp[Tmp$variable=="CPUE_ByCatch",], mapping=aes(Lon, Lat, fill = value)) +
+        facet_grid(Closure~variable) +
         scale_fill_gradient(low = "green", high = "red")+
         theme(legend.title = element_blank(),legend.position = "top",axis.ticks = element_blank(),axis.title.y = element_blank(),axis.text.y=element_blank(),legend.text = element_text(size = 8))
       if (by.month==FALSE){
