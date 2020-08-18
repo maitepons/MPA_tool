@@ -6,6 +6,7 @@ library(grid)
 library(gridExtra)
 library(ggcorrplot)
 library(shiny)
+library(ggplot2)
 
 ###############################################
 # this routine searches over spatial locations of closed areas 
@@ -27,7 +28,7 @@ FindClose<-function(NClose,D,Tweights,BCweights,minimize.by="prop",mosaic=F,by.m
     
     Narea<-nrow(D) # Number of areas: this is just the number of rows in the data frame
     
-    Bycatch<-D %>% dplyr::select(BCNames) # weighted numbers
+    Bycatch<-D %>% dplyr::select(all_of(BCNames)) # weighted numbers
     #now loop over over centroids
     BestByCatch=0 #the target bycatch to beat
     if (NClose>0) {
@@ -113,7 +114,7 @@ Calculate<-function(Closed,D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=G
   
   T_CPUE<-D %>%
     rowwise() %>%
-    transmute(across(TNames,function(x)x/Effort)) %>%
+    transmute(across(all_of(TNames),function(x)x/Effort)) %>%
     data.frame
   i<-which(Closed[[1]]==FALSE) # open area or open months
   
@@ -172,7 +173,7 @@ Calculate<-function(Closed,D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=G
   if (FishEfficiency == TRUE){ # CPUE can change 
     Catch<- D$Target  # catch by area before closure
     #Catch_byspecies<- D[,Tcols] 
-    Catch_byspecies<- D %>% dplyr::select(TNames)   # catch by area before closure by species
+    Catch_byspecies<- D %>% dplyr::select(all_of(TNames))   # catch by area before closure by species
     Abu<-Catch/(1-exp(-q*D$Effort)) #Abundance by area
     Abu_byspecies<-Catch_byspecies/(1-exp(-q*D$Effort))
     NewCatch<-Abu*(1-exp(-q*NewEffort))  #new catch by area
@@ -199,16 +200,16 @@ Calculate<-function(Closed,D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=G
   
   BcCPUE<-D %>% 
     rowwise() %>% 
-    transmute(across(BCNames,function(x)x/Effort)) %>% 
+    transmute(across(all_of(BCNames),function(x)x/Effort)) %>% 
     data.frame
   
   BcByArea<-BcCPUE*NewEffort 
   
   TotalBcByArea <- BcByArea %>% transmute(rowSums(.)) %>% pull
   
-  ByCatch <- BcByArea %>% summarise(across(BCNames,sum))
+  ByCatch <- BcByArea %>% summarise(across(all_of(BCNames),sum))
   
-  New_TCatch_byspecies <- NewCatch_byspecies %>% summarise(across(TNames,sum))
+  New_TCatch_byspecies <- NewCatch_byspecies %>% summarise(across(all_of(TNames),sum))
   
   TEffort<-sum(NewEffort)
   
@@ -575,8 +576,8 @@ server <- function(input, output, session) {
     BCNames<-colnames(BCweights)
     TNames<-colnames(Tweights)
     
-    col.BC <- which(colnames(D)%in%BCNames)
-    col.T <- which(colnames(D)%in%TNames)
+    col.BC <- which(colnames(D)%in%all_of(BCNames))
+    col.T <- which(colnames(D)%in%all_of(TNames))
     
     #Grid_res<-input$Grid_res
     ####################################################
@@ -605,13 +606,13 @@ server <- function(input, output, session) {
     } 
     
     D_w <- D_w %>% 
-      mutate(TBC.w=rowSums(.[BCNames]),# total weighted By-Catch
-             Target.w=rowSums(.[TNames])) %>% # total weighted By-Catch
+      mutate(TBC.w=rowSums(.[all_of(BCNames)]),# total weighted By-Catch
+             Target.w=rowSums(.[all_of(TNames)])) %>% # total weighted By-Catch
       filter(Target.w>0)# eliminate sets with target catch =0 to be able to calculate the proportion of Bycatch/target
   
     D <- D %>% 
-      mutate(TBC=rowSums(.[BCNames]),# total weighted By-Catch
-             Target=rowSums(.[TNames])) %>% # total weighted By-Catch
+      mutate(TBC=rowSums(.[all_of(BCNames)]),# total weighted By-Catch
+             Target=rowSums(.[all_of(TNames)])) %>% # total weighted By-Catch
       filter(Target>0)
     # add to D weighted columns for total bycatch and total target
     D$TBC.w<-D_w$TBC.w
