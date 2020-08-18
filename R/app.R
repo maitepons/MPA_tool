@@ -16,14 +16,14 @@ FindClose<-function(NClose,D,Tweights,BCweights,minimize.by="prop",mosaic=F,by.m
   NT<-length(Tweights) # number of target species 
   NBC<-length(BCweights) # number of byCatch species
   
-  col.BC<-seq(from=ncol(D)- NBC-1,to=ncol(D)-2) # columns for by-catch species 
+  col.BC<-seq(from=ncol(D)- NBC-1,to=ncol(D)-4) # columns for by-catch species 
   col.T<-seq(from=5,to=5+NT-1)
   BCNames<-names(D[col.BC])
   TNames<-names(D[col.T])
   
   if (by.month==FALSE){
     
-    col.BC<-seq(from=ncol(D)- NBC -1 ,to=ncol(D)-2)
+    col.BC<-seq(from=ncol(D)- NBC -1 ,to=ncol(D)-4)
     
     Narea<-nrow(D) # Number of areas: this is just the number of rows in the data frame
     
@@ -102,13 +102,13 @@ Calculate<-function(Closed,D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=G
   NT<-length(Tweights) # number of target species 
   NBC<-length(BCweights) # number of byCatch species
   
-  Bcols<-seq(from=ncol(D)- NBC-1,to=ncol(D)-2) # columns for by-catch species 
+  Bcols<-seq(from=ncol(D)- NBC-1,to=ncol(D)-4) # columns for by-catch species 
   Tcols<-seq(from=5,to=5+NT-1)
   
   BCNames<-names(D[Bcols])
   TNames<-names(D[Tcols])
   
-  CPUE<-D$Target.w/D$Effort # CPUE target species
+  CPUE<-D$Target/D$Effort # CPUE target species
   #T_CPUE<-D[,Tcols]/D$Effort
   
   T_CPUE<-D %>%
@@ -121,7 +121,7 @@ Calculate<-function(Closed,D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=G
   TotalE<-sum(D$Effort)
   Narea<-length(Closed[[1]]) # Total number of areas (grids)
   q<-Narea*(-log(1-hr)/TotalE)  #this is the q for the target species 
-  InitialCatch<-D$Target.w 
+  InitialCatch<-D$Target 
   InitialB<-InitialCatch/(1-exp(-q*D$Effort))  #the initial biomass in each cell for the target species  
   
   
@@ -151,10 +151,10 @@ Calculate<-function(Closed,D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=G
     }
     
     if(by.month==FALSE){
-      TC<-sum(D$Target.w) # catch for each target species should be the same, but effort can change 
+      TC<-sum(D$Target) # catch for each target species should be the same, but effort can change 
     }
     
-    CatchFromOpen<- sum(D$Target.w[i])  # catch in open areas 
+    CatchFromOpen<- sum(D$Target[i])  # catch in open areas 
     
     CatchFromOpen_byspecies<- D[i,] %>% summarise(across(.cols=all_of(TNames),sum))
     #CatchFromOpen_byspecies<- colSums(D[i,Tcols])
@@ -170,7 +170,7 @@ Calculate<-function(Closed,D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=G
   #######################################################################################
   #at this point we have NewEffort (check, NewEffort when FishToTC= TRUE or FALSE is the same)
   if (FishEfficiency == TRUE){ # CPUE can change 
-    Catch<- D$Target.w   # catch by area before closure
+    Catch<- D$Target  # catch by area before closure
     #Catch_byspecies<- D[,Tcols] 
     Catch_byspecies<- D %>% dplyr::select(TNames)   # catch by area before closure by species
     Abu<-Catch/(1-exp(-q*D$Effort)) #Abundance by area
@@ -185,7 +185,7 @@ Calculate<-function(Closed,D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=G
           TC<-GlobalTC
         }
         if(by.month==FALSE){
-          TC<-sum(D$Target.w) # total catch for the target species should be the same, effort can change 
+          TC<-sum(D$Target) # total catch for the target species should be the same, effort can change 
         }
         ratio<-sum(NewCatch)/TC
         NewEffort<-NewEffort/ratio
@@ -222,7 +222,7 @@ DoCalcs<-function(D,Tweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffort,BCweigh
   NT<-length(Tweights) # number of target species 
   NBC<-length(BCweights) # number of byCatch species
   
-  col.BC<-seq(from=ncol(D)- NBC-1,to=ncol(D)-2) # columns for by-catch species 
+  col.BC<-seq(from=ncol(D)- NBC-1,to=ncol(D)-4) # columns for by-catch species 
   col.T<-seq(from=5+1,to=5+NT)
   
   BCNames<-names(D[col.BC])
@@ -597,37 +597,68 @@ server <- function(input, output, session) {
     # sum(rel_wt)
     
     # plot weighted and unweighted proportions
-    D_nw<-D # unweighted
+    D_w<-D # keep D unweighted
     
-    for (i in 1:nrow(D)){
-      D[i,col.BC]<- D[i,col.BC]*rel_wb #asign bycatch weights
-      D[i,col.T]<- D[i,col.T]*rel_wt   #asign target weights
+    for (i in 1:nrow(D_w)){
+      D_w[i,col.BC]<- D_w[i,col.BC]*rel_wb #asign bycatch weights
+      D_w[i,col.T]<- D_w[i,col.T]*rel_wt   #asign target weights
     } 
     
-    D <- D %>% 
+    D_w <- D_w %>% 
       mutate(TBC.w=rowSums(.[BCNames]),# total weighted By-Catch
              Target.w=rowSums(.[TNames])) %>% # total weighted By-Catch
       filter(Target.w>0)# eliminate sets with target catch =0 to be able to calculate the proportion of Bycatch/target
+  
+    D <- D %>% 
+      mutate(TBC=rowSums(.[BCNames]),# total weighted By-Catch
+             Target=rowSums(.[TNames])) %>% # total weighted By-Catch
+      filter(Target>0)
+    # add to D weighted columns for total bycatch and total target
+    D$TBC.w<-D_w$TBC.w
+    D$Target.w<-D_w$Target.w
     
   # create a map with all years combined
   D_sum<-aggregate(x=D[,5:ncol(D)],by=list(Lat=D$Lat,Lon=D$Lon),FUN=sum)
   D_sum$Prop<-D_sum$TBC.w/D_sum$Target.w # % of ByCatch to target species
   
   Tmp<-melt(D_sum,id.vars = c("Lat","Lon"))
+  # for mapping
+  world <- map_data("world")
+  head(world)
+  i=which(world$long<0)
+  world$long[i]<- world$long[i]+ 360 #  rescale to 360 degrees to have all positive values for longitude
+  world$lat<- world$lat+ 90  #  rescale to 180 degrees to have all positive values for latitude
   
+  world.cut<-world[world$lat > min(D$Lat)-10 & world$lat < max(D$Lat)+10 ,]
+  world.cut<-world.cut[world.cut$long > min(D$Lon)-10 & world.cut$long < max(D$Lon)+10 ,]
+  
+  #This creates a quick and dirty world map - playing around with the themes, aesthetics, and device dimensions is recommended!
+  worldmap <- ggplot(world.cut, aes(x=long, y=lat)) +
+    geom_polygon(aes(group=group)) +
+    theme(panel.background = element_rect(fill="skyblue", colour="skyblue"),
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank()) +
+    coord_equal()
+  ##################### 
   GlobalTC<-sum(D[,col.T])
   GlobalEffort<-sum(D$Effort)
   
-  return(list(Tmp=Tmp,D=D,D_nw=D_nw,col.BC=col.BC,col.T=col.T,NBC=NBC,NT=NT,BCNames=BCNames,TNames=TNames,
-              Tweights=Tweights,BCweights=BCweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffort))
+  return(list(Tmp=Tmp,D=D,D_w=D_w,col.BC=col.BC,col.T=col.T,NBC=NBC,NT=NT,BCNames=BCNames,TNames=TNames,
+              Tweights=Tweights,BCweights=BCweights,worldmap=worldmap,
+              GlobalTC=GlobalTC,GlobalEffort=GlobalEffort))
     
   })
   myplot1<-function(){
     dataframe()$Tmp %>% group_by(variable) %>%
-      do(gg = {ggplot(., aes(Lon, Lat, fill = value)) +
-          geom_tile() + facet_grid(~variable) +
-          scale_fill_gradient(low = "green", high = "red")+
-          theme(legend.position = "top")}) %>%
+      do(gg = {
+        dataframe()$worldmap +
+          geom_tile(., mapping=aes(Lon, Lat, fill = value)) +
+          facet_grid(~variable) +
+          scale_fill_gradient(low = "white", high = "red")+
+          theme(panel.background = element_rect(fill="skyblue", colour="skyblue"),
+                panel.grid.major = element_blank(),
+                panel.grid.minor = element_blank(),legend.position = "top")
+      }) %>%
       .$gg %>% arrangeGrob(grobs = ., nrow = 3) %>% grid.arrange()
     
   }
@@ -811,19 +842,21 @@ server <- function(input, output, session) {
   })
   myplot4<-function(){
     if(input$by.month=="No"){
-      g<-ggplot(Tmp()[Tmp()$variable=="NewEffort",], aes(Lon, Lat, fill = value)) +
-        geom_tile() + facet_grid(Closure~variable) +
+      g<-dataframe()$worldmap+
+        geom_tile(data=Tmp()[Tmp()$variable=="NewEffort",], mapping=aes(Lon, Lat, fill = value)) +
+        facet_grid(Closure~variable) +
         scale_fill_gradient(low = "green", high = "red")+
         theme(legend.title = element_blank(),legend.position = "top",legend.text = element_text(size = 8),strip.text.y = element_blank())
-      gg<-ggplot(Tmp()[Tmp()$variable=="CPUE_Target",], aes(Lon, Lat, fill = value)) +
-        geom_tile() + facet_grid(Closure~variable) +
+      gg<-dataframe()$worldmap+
+        geom_tile(data=Tmp()[Tmp()$variable=="CPUE_Target",], mapping=aes(Lon, Lat, fill = value)) +
+        facet_grid(Closure~variable) +
         scale_fill_gradient(low = "green", high = "red")+
         theme(legend.title = element_blank(),legend.position = "top",axis.ticks = element_blank(),axis.title.y = element_blank(),axis.text.y=element_blank(),legend.text = element_text(size = 8),strip.text.y = element_blank())
-      ggg<-ggplot(Tmp()[Tmp()$variable=="CPUE_ByCatch",], aes(Lon, Lat, fill = value)) +
-        geom_tile() + facet_grid(Closure~variable) +
+      ggg<-dataframe()$worldmap+
+        geom_tile(data=Tmp()[Tmp()$variable=="CPUE_ByCatch",], mapping=aes(Lon, Lat, fill = value)) +
+        facet_grid(Closure~variable) +
         scale_fill_gradient(low = "green", high = "red")+
-        theme(legend.title = element_blank(),legend.position = "top",axis.ticks = element_blank(),axis.title.y = element_blank(),axis.text.y=element_blank(),legend.text = element_text(size = 8))
-      
+        theme(legend.title = element_blank(),legend.position = "top",axis.ticks = element_blank(),axis.title.y = element_blank(),axis.text.y=element_blank(),legend.text = element_text(size = 8)) 
       G<-grid.arrange(g,gg,ggg,ncol=3) 
       
       if(input$by.month=="Yes"){
@@ -870,21 +903,20 @@ server <- function(input, output, session) {
    #######################################################
    myplot6<-function(){
      par(mfrow=c(1,2),oma=c(5,1,1,1),mar=c(1,4,2,0))
-     par(mfrow=c(1,2),oma=c(5,1,1,1),mar=c(1,4,2,0))
-     plot(as.numeric(dataframe()$D_nw %>% summarise(across(.cols=all_of(dataframe()$TNames),sum)))/
-            sum(dataframe()$D_nw[,dataframe()$TNames]),xaxt='n',
+     plot(as.numeric(dataframe()$D %>% summarise(across(.cols=all_of(dataframe()$TNames),sum)))/
+            sum(dataframe()$D[,dataframe()$TNames]),xaxt='n',
           col="blue",pch=19,xlab="",ylab="")
-     points(as.numeric(dataframe()$D %>% summarise(across(.cols=all_of(dataframe()$TNames),sum)))/
-              sum(dataframe()$D[,dataframe()$TNames]),col="red",pch=19)
+     points(as.numeric(dataframe()$D_w %>% summarise(across(.cols=all_of(dataframe()$TNames),sum)))/
+              sum(dataframe()$D_w[,dataframe()$TNames]),col="red",pch=19)
      axis(side = 1, at = c(1:dataframe()$NT),labels = c(dataframe()$TNames),las=2)
      title(main="Target",line = 0.5)
      legend("topright",col=c("blue","red"),pch=19,legend = c("Unweighted","Weighted"))
      
-     plot(as.numeric(dataframe()$D_nw %>% summarise(across(.cols=all_of(dataframe()$BCNames),sum)))/
-            sum(dataframe()$D_nw[,dataframe()$BCNames]),xaxt='n',
+     plot(as.numeric(dataframe()$D %>% summarise(across(.cols=all_of(dataframe()$BCNames),sum)))/
+            sum(dataframe()$D[,dataframe()$BCNames]),xaxt='n',
           col="blue",pch=19,xlab="",ylab="")
-     points(as.numeric(dataframe()$D %>% summarise(across(.cols=all_of(dataframe()$BCNames),sum)))/
-              sum(dataframe()$D[,dataframe()$BCNames]),col="red",pch=19)
+     points(as.numeric(dataframe()$D_w %>% summarise(across(.cols=all_of(dataframe()$BCNames),sum)))/
+              sum(dataframe()$D_w[,dataframe()$BCNames]),col="red",pch=19)
      axis(side = 1, at = c(1:dataframe()$NBC),labels = c(dataframe()$BCNames),las=2)
      title(main="Bycatch",line = 0.5)
      
