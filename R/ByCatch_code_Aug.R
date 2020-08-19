@@ -40,6 +40,18 @@ rm(list=ls())
 ############################################
 Fishery_name<-"Your_fishery_name" ## CHANGE!!! to a name that you can recognize
                                   # if you are working with multiple fisheries
+
+# if you don;t have the following libraries do:
+# install.packages("name of the library") 
+# examples:
+# install.packages(tidyverse)
+# install.packages(reshape2)
+# install.packages(grid)
+# install.packages(gridExtra)
+# install.packages(ggcorrplot)
+# install.packages(dplyr)
+# install.packages(maps)
+
 ####### Libraries needed
 library(tidyverse)
 library(reshape2)
@@ -47,6 +59,8 @@ library(grid)
 library(gridExtra)
 library(ggcorrplot)
 library(dplyr)
+library(maps)
+
 ###########################################################################
 # Read data and weights csv files  ########################################
 ###########################################################################
@@ -153,8 +167,8 @@ i=which(world$long<0)
 world$long[i]<- world$long[i]+ 360 #  rescale to 360 degrees to have all positive values for longitude
 world$lat<- world$lat+ 90  #  rescale to 180 degrees to have all positive values for latitude
 
-world.cut<-world[world$lat > min(D$Lat)-10 & world$lat < max(D$Lat)+10 ,]
-world.cut<-world.cut[world.cut$long > min(D$Lon)-10 & world.cut$long < max(D$Lon)+10 ,]
+world.cut<-world[world$lat > min(D$Lat)-5 & world$lat < max(D$Lat)+5 ,]
+world.cut<-world.cut[world.cut$long > min(D$Lon)-5 & world.cut$long < max(D$Lon)+5 ,]
 
 #This creates a quick and dirty world map - playing around with the themes, aesthetics, and device dimensions is recommended!
 worldmap <- ggplot(world.cut, aes(x=long, y=lat)) +
@@ -686,17 +700,17 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
       g<-worldmap+
         geom_tile(data=Tmp[Tmp$variable=="NewEffort",], mapping=aes(Lon, Lat, fill = value)) +
         facet_grid(Closure~variable) +
-        scale_fill_gradient(low = "green", high = "red")+
+        scale_fill_gradient(low = "white", high = "red")+
         theme(legend.title = element_blank(),legend.position = "top",legend.text = element_text(size = 8),strip.text.y = element_blank())
       gg<-worldmap+
         geom_tile(data=Tmp[Tmp$variable=="CPUE_Target",], mapping=aes(Lon, Lat, fill = value)) +
         facet_grid(Closure~variable) +
-        scale_fill_gradient(low = "green", high = "red")+
+        scale_fill_gradient(low = "white", high = "red")+
         theme(legend.title = element_blank(),legend.position = "top",axis.ticks = element_blank(),axis.title.y = element_blank(),axis.text.y=element_blank(),legend.text = element_text(size = 8),strip.text.y = element_blank())
       ggg<-worldmap+
         geom_tile(data=Tmp[Tmp$variable=="CPUE_ByCatch",], mapping=aes(Lon, Lat, fill = value)) +
         facet_grid(Closure~variable) +
-        scale_fill_gradient(low = "green", high = "red")+
+        scale_fill_gradient(low = "white", high = "red")+
         theme(legend.title = element_blank(),legend.position = "top",axis.ticks = element_blank(),axis.title.y = element_blank(),axis.text.y=element_blank(),legend.text = element_text(size = 8))
       if (by.month==FALSE){
         grid.arrange(g,gg,ggg,ncol=3,top=paste("Year",unique(D$Year)[y],",","Mosaic=",mosaic,"Minimized by=",minimize.by,",", "Fish to TC =",FishToTC,",","Fishing Efficiency changes =",FishEfficiency))
