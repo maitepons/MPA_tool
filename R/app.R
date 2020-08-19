@@ -632,8 +632,8 @@ server <- function(input, output, session) {
     world$long[i]<- world$long[i]+ 360 #  rescale to 360 degrees to have all positive values for longitude
     world$lat<- world$lat+ 90  #  rescale to 180 degrees to have all positive values for latitude
     
-    world.cut<-world[world$lat > min(D$Lat)-10 & world$lat < max(D$Lat)+10 ,]
-    world.cut<-world.cut[world.cut$long > min(D$Lon)-10 & world.cut$long < max(D$Lon)+10 ,]
+    world.cut<-world[world$lat > min(D$Lat)-5 & world$lat < max(D$Lat)+5 ,]
+    world.cut<-world.cut[world.cut$long > min(D$Lon)-5 & world.cut$long < max(D$Lon)+5 ,]
     
     #This creates a quick and dirty world map - playing around with the themes, aesthetics, and device dimensions is recommended!
     worldmap <- ggplot(world.cut, aes(x=long, y=lat)) +
