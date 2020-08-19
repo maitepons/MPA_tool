@@ -6,7 +6,7 @@ library(grid)
 library(gridExtra)
 library(ggcorrplot)
 library(shiny)
-library(ggplot2)
+library(maps)
 
 ###############################################
 # this routine searches over spatial locations of closed areas 
@@ -498,7 +498,7 @@ ui <- fluidPage(
       br(),
       h6("The areas will be closed by minimizing the following:"),
       radioButtons(inputId = "minimize.by", label="Minimize by:",
-                         choices=c("ByCatch/Target", "ByCatch rate" ,"ByCatch numbers")),
+                   choices=c("ByCatch/Target", "ByCatch rate" ,"ByCatch numbers")),
       
       br(),
       h6("Fishing to Total Catch means that the effort outside the closed areas will increase in order to get the same Total Catch as it was before the closure.
@@ -507,7 +507,7 @@ ui <- fluidPage(
          The total effort before and after the closure is the same.
          In all cases we assume that when areas are closed, effort moves to open areas proportional to the amount of effort that was in the open areas before closure."),
       radioButtons(inputId = "FishToTC", label= "Fish to:", 
-                        choices=c("Total Catch" , "Total Effort")),
+                   choices=c("Total Catch" , "Total Effort")),
       
       br(),
       h6("If Fishing efficiency does not change, it means that the CPUE for the target species in each quadrant 
@@ -515,14 +515,14 @@ ui <- fluidPage(
          we assume that as fishing pressure increases in open areas, due to displaced effort, 
          the CPUE of the target species will change due to a decline in biomass"),
       radioButtons(inputId = "FishEfficiency" , label = "Fishing efficiency", 
-                         choices=c("Does not change", "Changes")),
+                   choices=c("Does not change", "Changes")),
       br(),
       h6("This is for monthly closures; not area closures. Map_closed_areas is not generated when Monthly closures is selected"),
       radioButtons(inputId = "by.month", label="Monthly closures", 
-                         choices=c("No","Yes")),
+                   choices=c("No","Yes")),
       sliderInput("obs", "Number of months to close:",
-                             min = 0, max = 12, value = 5)
-        ),
+                  min = 0, max = 12, value = 5)
+    ),
     
     mainPanel(
       
@@ -542,7 +542,7 @@ ui <- fluidPage(
                   tabPanel("Weights_plot", plotOutput("plot6"),
                            downloadButton(outputId='downloadWPlot',label='download.WPlot'))
                   
-                  ),
+      ),
       
     )
   )
@@ -550,13 +550,13 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   dataframe<-reactive({
-       req(input$file1,input$file2)
+    req(input$file1,input$file2)
     
     if (is.null(input$file1))
       return(NULL)                
     D<-read.csv(input$file1$datapath,
-                   header = TRUE,
-                   sep =input$sep1)
+                header = TRUE,
+                sep =input$sep1)
     D<-D[complete.cases(D),]
     if (is.null(input$file2))
       return(NULL)
@@ -584,7 +584,7 @@ server <- function(input, output, session) {
     i=which(D$Lon<0)
     D$Lon[i]<- D$Lon[i]+ 360 #  rescale to 360 degrees to have all positive values for longitude
     D$Lat<- D$Lat+ 90  #  rescale to 180 degrees to have all positive values for latitude
-     
+    
     # multiply numbers of bycatch species by weights
     mysums.B <- D %>% summarise(across(.cols=all_of(BCNames),sum))
     mysums.T <- D %>% summarise(across(.cols=all_of(TNames),sum))
@@ -609,7 +609,7 @@ server <- function(input, output, session) {
       mutate(TBC.w=rowSums(.[all_of(BCNames)]),# total weighted By-Catch
              Target.w=rowSums(.[all_of(TNames)])) %>% # total weighted By-Catch
       filter(Target.w>0)# eliminate sets with target catch =0 to be able to calculate the proportion of Bycatch/target
-  
+    
     D <- D %>% 
       mutate(TBC=rowSums(.[all_of(BCNames)]),# total weighted By-Catch
              Target=rowSums(.[all_of(TNames)])) %>% # total weighted By-Catch
@@ -618,35 +618,37 @@ server <- function(input, output, session) {
     D$TBC.w<-D_w$TBC.w
     D$Target.w<-D_w$Target.w
     
-  # create a map with all years combined
-  D_sum<-aggregate(x=D[,5:ncol(D)],by=list(Lat=D$Lat,Lon=D$Lon),FUN=sum)
-  D_sum$Prop<-D_sum$TBC.w/D_sum$Target.w # % of ByCatch to target species
-  
-  Tmp<-melt(D_sum,id.vars = c("Lat","Lon"))
-  # for mapping
-  world <- map_data("world")
-  head(world)
-  i=which(world$long<0)
-  world$long[i]<- world$long[i]+ 360 #  rescale to 360 degrees to have all positive values for longitude
-  world$lat<- world$lat+ 90  #  rescale to 180 degrees to have all positive values for latitude
-  
-  world.cut<-world[world$lat > min(D$Lat)-10 & world$lat < max(D$Lat)+10 ,]
-  world.cut<-world.cut[world.cut$long > min(D$Lon)-10 & world.cut$long < max(D$Lon)+10 ,]
-  
-  #This creates a quick and dirty world map - playing around with the themes, aesthetics, and device dimensions is recommended!
-  worldmap <- ggplot(world.cut, aes(x=long, y=lat)) +
-    geom_polygon(aes(group=group)) +
-    theme(panel.background = element_rect(fill="skyblue", colour="skyblue"),
-          panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank()) +
-    coord_equal()
-  ##################### 
-  GlobalTC<-sum(D[,col.T])
-  GlobalEffort<-sum(D$Effort)
-  
-  return(list(Tmp=Tmp,D=D,D_w=D_w,col.BC=col.BC,col.T=col.T,NBC=NBC,NT=NT,BCNames=BCNames,TNames=TNames,
-              Tweights=Tweights,BCweights=BCweights,worldmap=worldmap,
-              GlobalTC=GlobalTC,GlobalEffort=GlobalEffort))
+    # create a map with all years combined
+    D_sum<-aggregate(x=D[,5:ncol(D)],by=list(Lat=D$Lat,Lon=D$Lon),FUN=sum)
+    D_sum$Prop<-D_sum$TBC.w/D_sum$Target.w # % of ByCatch to target species
+    
+    Tmp<-melt(D_sum,id.vars = c("Lat","Lon"))
+    # for mapping
+    world <- ggplot2::map_data('world')
+    #world <- broom(world)
+    #world <- map_data("world")
+   
+    i=which(world$long<0)
+    world$long[i]<- world$long[i]+ 360 #  rescale to 360 degrees to have all positive values for longitude
+    world$lat<- world$lat+ 90  #  rescale to 180 degrees to have all positive values for latitude
+    
+    world.cut<-world[world$lat > min(D$Lat)-10 & world$lat < max(D$Lat)+10 ,]
+    world.cut<-world.cut[world.cut$long > min(D$Lon)-10 & world.cut$long < max(D$Lon)+10 ,]
+    
+    #This creates a quick and dirty world map - playing around with the themes, aesthetics, and device dimensions is recommended!
+    worldmap <- ggplot(world.cut, aes(x=long, y=lat)) +
+      geom_polygon(aes(group=group)) +
+      theme(panel.background = element_rect(fill="skyblue", colour="skyblue"),
+            panel.grid.major = element_blank(),
+            panel.grid.minor = element_blank()) +
+      coord_equal()
+    ##################### 
+    GlobalTC<-sum(D[,col.T])
+    GlobalEffort<-sum(D$Effort)
+    
+    return(list(Tmp=Tmp,D=D,D_w=D_w,col.BC=col.BC,col.T=col.T,NBC=NBC,NT=NT,BCNames=BCNames,TNames=TNames,
+                Tweights=Tweights,BCweights=BCweights,worldmap=worldmap,
+                GlobalTC=GlobalTC,GlobalEffort=GlobalEffort))
     
   })
   myplot1<-function(){
@@ -661,7 +663,7 @@ server <- function(input, output, session) {
                 panel.grid.minor = element_blank(),legend.position = "top")
       }) %>%
       .$gg %>% arrangeGrob(grobs = ., nrow = 3) %>% grid.arrange()
-    
+
   }
   output$plot1<-renderPlot({
     myplot1()
@@ -681,7 +683,7 @@ server <- function(input, output, session) {
       myplot1()
       # close the device
       dev.off()
-  }
+    }
   )
   
   ### Run functions
@@ -692,7 +694,7 @@ server <- function(input, output, session) {
     if(input$Mosaic=="Mosaic"){
       Mosaic=TRUE
     }
-  
+    
     if(input$minimize.by=="ByCatch/Target"){
       minimize.by="prop"
     }
@@ -702,7 +704,7 @@ server <- function(input, output, session) {
     if(input$minimize.by=="ByCatch rate"){
       minimize.by="rate"
     }
-  
+    
     if(input$FishToTC=="Total Catch"){
       FishToTC=TRUE
     }
@@ -716,20 +718,20 @@ server <- function(input, output, session) {
       FishEfficiency=FALSE
     }
     
-     if(input$by.month=="No"){
-       by.month=FALSE
+    if(input$by.month=="No"){
+      by.month=FALSE
     }
-     if(input$by.month=="Yes"){
-       by.month=TRUE
-     }
+    if(input$by.month=="Yes"){
+      by.month=TRUE
+    }
     Res<-DoCalcs(D=dataframe()$D,GlobalTC=dataframe()$GlobalTC,GlobalEffort=dataframe()$GlobalEffort,
                  BCweights=dataframe()$BCweights,Tweights=dataframe()$Tweights,
                  ClosedSeq=seq(0,.5,.1),Months_closed=seq(1,input$obs,1),
-            mosaic = Mosaic,FishToTC=FishToTC,FishEfficiency=FishEfficiency,hr=0.1,
-            minimize.by=minimize.by,Maps=FALSE,by.month=by.month,tmp.lines=TRUE) 
-       
+                 mosaic = Mosaic,FishToTC=FishToTC,FishEfficiency=FishEfficiency,hr=0.1,
+                 minimize.by=minimize.by,Maps=FALSE,by.month=by.month,tmp.lines=TRUE) 
+    
     return(Res)
-    })
+  })
   #
   myplot2<-function(){
     if(!is.null(Out()))
@@ -780,8 +782,8 @@ server <- function(input, output, session) {
     }
   }
   output$plot2 <- renderPlot({
-  if(!is.null(Out()))
-  myplot2()
+    if(!is.null(Out()))
+      myplot2()
   })
   # 
   
@@ -819,8 +821,8 @@ server <- function(input, output, session) {
   }
   output$plot3<-renderPlot({
     myplot3()
-   })
-   output$downloadBPlot <- downloadHandler(
+  })
+  output$downloadBPlot <- downloadHandler(
     filename = function() {
       paste('Barplot', '.png',sep="")
     },
@@ -836,120 +838,118 @@ server <- function(input, output, session) {
   Tmp<-reactive({
     N<-length(Out()$ResArea)
     ResArea<-Out()$ResArea[[N]]
-        ResArea[ResArea$NewEffort==0,"NewEffort"]<-NA
-        tmp<-melt(ResArea,id.vars = c("Lat","Lon","Closure"))
-        tmp$Closure<-as.factor(tmp$Closure)
-        return(tmp)
+    ResArea[ResArea$NewEffort==0,"NewEffort"]<-NA
+    tmp<-melt(ResArea,id.vars = c("Lat","Lon","Closure"))
+    tmp$Closure<-as.factor(tmp$Closure)
+    return(tmp)
   })
   myplot4<-function(){
     if(input$by.month=="No"){
       g<-dataframe()$worldmap+
         geom_tile(data=Tmp()[Tmp()$variable=="NewEffort",], mapping=aes(Lon, Lat, fill = value)) +
         facet_grid(Closure~variable) +
-        scale_fill_gradient(low = "green", high = "red")+
+        scale_fill_gradient(low = "white", high = "red")+
         theme(legend.title = element_blank(),legend.position = "top",legend.text = element_text(size = 8),strip.text.y = element_blank())
       gg<-dataframe()$worldmap+
         geom_tile(data=Tmp()[Tmp()$variable=="CPUE_Target",], mapping=aes(Lon, Lat, fill = value)) +
         facet_grid(Closure~variable) +
-        scale_fill_gradient(low = "green", high = "red")+
+        scale_fill_gradient(low = "white", high = "red")+
         theme(legend.title = element_blank(),legend.position = "top",axis.ticks = element_blank(),axis.title.y = element_blank(),axis.text.y=element_blank(),legend.text = element_text(size = 8),strip.text.y = element_blank())
       ggg<-dataframe()$worldmap+
         geom_tile(data=Tmp()[Tmp()$variable=="CPUE_ByCatch",], mapping=aes(Lon, Lat, fill = value)) +
         facet_grid(Closure~variable) +
-        scale_fill_gradient(low = "green", high = "red")+
-        theme(legend.title = element_blank(),legend.position = "top",axis.ticks = element_blank(),axis.title.y = element_blank(),axis.text.y=element_blank(),legend.text = element_text(size = 8)) 
-      G<-grid.arrange(g,gg,ggg,ncol=3) 
-      
+        scale_fill_gradient(low = "white", high = "red")+
+        theme(legend.title = element_blank(),legend.position = "top",axis.ticks = element_blank(),axis.title.y = element_blank(),axis.text.y=element_blank(),legend.text = element_text(size = 8))
+      G<-grid.arrange(g,gg,ggg,ncol=3)
+
       if(input$by.month=="Yes"){
         print("No Area plot")
       }
     }
   }
-   output$plot4<-renderPlot({
-         #
-     myplot4()
-    })
-   output$downloadCMap <- downloadHandler(
-     filename = function() {
-       paste('OutMaps', '.png',sep="")
-     },
-     content = function(file) {
-       #ggsave(file, device = "png", width=11, height=8.5)
-       png(file,width = 1000, height = 1000, pointsize = 22)
-       myplot4()
-       dev.off()
-     }
-   )
+  output$plot4<-renderPlot({
+    #
+    myplot4()
+  })
+  output$downloadCMap <- downloadHandler(
+    filename = function() {
+      paste('OutMaps', '.png',sep="")
+    },
+    content = function(file) {
+      #ggsave(file, device = "png", width=11, height=8.5)
+      png(file,width = 1000, height = 1000, pointsize = 22)
+      myplot4()
+      dev.off()
+    }
+  )
   #######################################################
   myplot5<-function(){
     ggcorrplot(round(cor(dataframe()$D[,-c(1:4)]), 1), hc.order = FALSE, type = "lower",lab=TRUE,
                outline.col = "white")
     
   }
-   output$plot5<-renderPlot({
-     myplot5()
-   })
-   output$downloadCorPlot <- downloadHandler(
-     filename = function() {
-       paste('Corrplot', '.png',sep="")
-     },
-     content = function(file) {
-       ggsave(file, device = "png", width=11, height=8.5)
-       
-       #png(file,width = 1000, height = 1000, pointsize = 22)
-       myplot5()
-       #dev.off()
-     }
-   )
-   #######################################################
-   myplot6<-function(){
-     par(mfrow=c(1,2),oma=c(5,1,1,1),mar=c(1,4,2,0))
-     plot(as.numeric(dataframe()$D %>% summarise(across(.cols=all_of(dataframe()$TNames),sum)))/
-            sum(dataframe()$D[,dataframe()$TNames]),xaxt='n',
-          col="blue",pch=19,xlab="",ylab="")
-     points(as.numeric(dataframe()$D_w %>% summarise(across(.cols=all_of(dataframe()$TNames),sum)))/
-              sum(dataframe()$D_w[,dataframe()$TNames]),col="red",pch=19)
-     axis(side = 1, at = c(1:dataframe()$NT),labels = c(dataframe()$TNames),las=2)
-     title(main="Target",line = 0.5)
-     legend("topright",col=c("blue","red"),pch=19,legend = c("Unweighted","Weighted"))
-     
-     plot(as.numeric(dataframe()$D %>% summarise(across(.cols=all_of(dataframe()$BCNames),sum)))/
-            sum(dataframe()$D[,dataframe()$BCNames]),xaxt='n',
-          col="blue",pch=19,xlab="",ylab="")
-     points(as.numeric(dataframe()$D_w %>% summarise(across(.cols=all_of(dataframe()$BCNames),sum)))/
-              sum(dataframe()$D_w[,dataframe()$BCNames]),col="red",pch=19)
-     axis(side = 1, at = c(1:dataframe()$NBC),labels = c(dataframe()$BCNames),las=2)
-     title(main="Bycatch",line = 0.5)
-     
-   }
-   output$plot6<-renderPlot({
-     myplot6()
-   })
-   output$downloadWPlot <- downloadHandler(
-     filename = function() {
-       paste('Weigths_plot', '.png',sep="")
-     },
-     content = function(file) {
-       png(file,width = 1500, height = 1000, pointsize = 22)
-       myplot6()
-       dev.off()
-     }
-   )
-   # Save state
-   output$SaveRDS <- downloadHandler(
-     filename = function() {
-       
-       paste0(input$Fishery_name,Out()$OutID,".rds")
-        },
-     content = function(file) {
-       data_out <- isolate(Out())
-         
-       saveRDS(data_out, file)
-     } 
-   )
+  output$plot5<-renderPlot({
+    myplot5()
+  })
+  output$downloadCorPlot <- downloadHandler(
+    filename = function() {
+      paste('Corrplot', '.png',sep="")
+    },
+    content = function(file) {
+      ggsave(file, device = "png", width=11, height=8.5)
+      
+      #png(file,width = 1000, height = 1000, pointsize = 22)
+      myplot5()
+      #dev.off()
+    }
+  )
+  #######################################################
+  myplot6<-function(){
+    par(mfrow=c(1,2),oma=c(5,1,1,1),mar=c(1,4,2,0))
+    plot(as.numeric(dataframe()$D %>% summarise(across(.cols=all_of(dataframe()$TNames),sum)))/
+           sum(dataframe()$D[,dataframe()$TNames]),xaxt='n',
+         col="blue",pch=19,xlab="",ylab="")
+    points(as.numeric(dataframe()$D_w %>% summarise(across(.cols=all_of(dataframe()$TNames),sum)))/
+             sum(dataframe()$D_w[,dataframe()$TNames]),col="red",pch=19)
+    axis(side = 1, at = c(1:dataframe()$NT),labels = c(dataframe()$TNames),las=2)
+    title(main="Target",line = 0.5)
+    legend("topright",col=c("blue","red"),pch=19,legend = c("Unweighted","Weighted"))
+    
+    plot(as.numeric(dataframe()$D %>% summarise(across(.cols=all_of(dataframe()$BCNames),sum)))/
+           sum(dataframe()$D[,dataframe()$BCNames]),xaxt='n',
+         col="blue",pch=19,xlab="",ylab="")
+    points(as.numeric(dataframe()$D_w %>% summarise(across(.cols=all_of(dataframe()$BCNames),sum)))/
+             sum(dataframe()$D_w[,dataframe()$BCNames]),col="red",pch=19)
+    axis(side = 1, at = c(1:dataframe()$NBC),labels = c(dataframe()$BCNames),las=2)
+    title(main="Bycatch",line = 0.5)
+    
+  }
+  output$plot6<-renderPlot({
+    myplot6()
+  })
+  output$downloadWPlot <- downloadHandler(
+    filename = function() {
+      paste('Weigths_plot', '.png',sep="")
+    },
+    content = function(file) {
+      png(file,width = 1500, height = 1000, pointsize = 22)
+      myplot6()
+      dev.off()
+    }
+  )
+  # Save state
+  output$SaveRDS <- downloadHandler(
+    filename = function() {
+      
+      paste0(input$Fishery_name,Out()$OutID,".rds")
+    },
+    content = function(file) {
+      data_out <- isolate(Out())
+      
+      saveRDS(data_out, file)
+    } 
+  )
   
 }
 
 shinyApp(ui=ui, server=server)
-
-
