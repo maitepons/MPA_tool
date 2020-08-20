@@ -100,6 +100,8 @@ hr=.1   #a guess at the overall harvest rate for target species
 # multiply numbers of bycatch species by weights
 mysums.B <- D %>% summarise(across(.cols=all_of(BCNames),sum))
 mysums.T <- D %>% summarise(across(.cols=all_of(TNames),sum))
+# If you have problems with the fucntion across not being recognized, 
+# please re-install the package 'dplyr' and re-start R. Thanks 
 
 tmp_wb<-BCweights/mysums.B
 tmp_wt<-Tweights/mysums.T
