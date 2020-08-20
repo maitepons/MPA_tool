@@ -17,7 +17,7 @@ FindClose<-function(NClose,D,Tweights,BCweights,minimize.by="prop",mosaic=F,by.m
   NT<-length(Tweights) # number of target species 
   NBC<-length(BCweights) # number of byCatch species
   
-  col.BC<-seq(from=ncol(D)- NBC-1,to=ncol(D)-4) # columns for by-catch species 
+  col.BC<-seq(from=ncol(D)- NBC-3,to=ncol(D)-4) # columns for by-catch species 
   col.T<-seq(from=5,to=5+NT-1)
   BCNames<-names(D[col.BC])
   TNames<-names(D[col.T])
@@ -103,7 +103,7 @@ Calculate<-function(Closed,D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=G
   NT<-length(Tweights) # number of target species 
   NBC<-length(BCweights) # number of byCatch species
   
-  Bcols<-seq(from=ncol(D)- NBC-1,to=ncol(D)-4) # columns for by-catch species 
+  Bcols<-seq(from=ncol(D)- NBC-3,to=ncol(D)-4) # columns for by-catch species 
   Tcols<-seq(from=5,to=5+NT-1)
   
   BCNames<-names(D[Bcols])
@@ -223,7 +223,7 @@ DoCalcs<-function(D,Tweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffort,BCweigh
   NT<-length(Tweights) # number of target species 
   NBC<-length(BCweights) # number of byCatch species
   
-  col.BC<-seq(from=ncol(D)- NBC-1,to=ncol(D)-4) # columns for by-catch species 
+  col.BC<-seq(from=ncol(D)- NBC-3,to=ncol(D)-4) # columns for by-catch species 
   col.T<-seq(from=5+1,to=5+NT)
   
   BCNames<-names(D[col.BC])
