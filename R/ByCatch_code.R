@@ -36,11 +36,26 @@
 # d) RDS output with results to be use in future analysis                   #
 # Outputs are saved in a folder called "Results"                            #
 #############################################################################
-rm(list=ls())
-############################################
-Fishery_name<-"Your_fishery_name" ## CHANGE!!! to a name that you can recognize
-                                  # if you are working with multiple fisheries
 
+# Default names and locations
+defaults = c(Fishery_name="Your_fishery_name",
+             results_dir="Results",
+             data_fn = "Data.csv",
+             weights_fn = "Weights.csv"
+             )
+
+# Set variables to default values if present in workspace
+for (vn in names(defaults)) {
+  if (!exists(vn)) # Only set to default if not already in workspace
+    assign(vn,defaults[vn])
+}
+
+# Remove all but these parameter values
+vns = ls()
+vns = vns[!(vns %in% c("defaults",names(defaults)))]
+rm(list=vns)
+
+############################################
 # if you don;t have the following libraries do:
 # install.packages("name of the library") 
 # examples:
@@ -65,15 +80,15 @@ library(maps)
 # Read data and weights csv files  ########################################
 ###########################################################################
 # setwd("") # use thsi to set your working directory if needed#############
-dir.create(path=paste(getwd(),"Results",sep="/"),showWarnings = FALSE)    # 
+dir.create(results_dir,showWarnings = FALSE)    # 
 ###########################################################################
-D<-read.csv("Data.csv",header = T) 
+D<-read.csv(data_fn,header = T) 
 D<-D[complete.cases(D),]
 
-Tweights<-read.csv("Weights.csv",nrows = 1)%>%
+Tweights<-read.csv(weights_fn,nrows = 1)%>%
   select_if(~ !any(is.na(.))) 
 
-BCweights<-read.csv("Weights.csv",nrows = 2,skip = 2)%>%
+BCweights<-read.csv(weights_fn,nrows = 2,skip = 2)%>%
   select_if(~ !any(is.na(.))) 
 
 NT<-ncol(Tweights) # number of target species 
@@ -119,7 +134,7 @@ for (i in 1:nrow(D_w)){
   D_w[i,col.T]<- D_w[i,col.T]*rel_wt   #asign target weights
 } 
 
-pdf(file=paste0("Results/","Proportions",Fishery_name,".pdf"),width = 8,height = 6)
+pdf(file=file.path(results_dir,paste0("Proportions",Fishery_name,".pdf")),width = 8,height = 6)
 par(mfrow=c(1,2),oma=c(5,1,1,1),mar=c(1,4,2,0))
 plot(as.numeric(D %>% summarise(across(.cols=all_of(TNames),sum)))/sum(D[,TNames]),xaxt='n',
      col="blue",pch=19,xlab="",ylab="Relative proportion")
@@ -148,7 +163,7 @@ D <- D %>%
 D$TBC.w<-D_w$TBC.w
 D$Target.w<-D_w$Target.w
 ###### correlation plot
-pdf(file=paste0("Results/","Corr_plot_",Fishery_name,".pdf"))
+pdf(file=file.path(results_dir,paste0("Corr_plot_",Fishery_name,".pdf")))
 ggcorrplot(round(cor(D[,-c(1:4,ncol(D)-1,ncol(D))]), 1), hc.order = FALSE, type = "lower",lab=TRUE,
            outline.col = "white")
 dev.off()
@@ -180,7 +195,7 @@ worldmap <- ggplot(world.cut, aes(x=long, y=lat)) +
         panel.grid.minor = element_blank()) +
   coord_equal()
 
-pdf(paste0("Results/","Maps_data",Fishery_name,".pdf"),width=10, height = 9,onefile=F)
+pdf(file.path(results_dir,paste0("Maps_data",Fishery_name,".pdf")),width=10, height = 9,onefile=F)
 Tmp %>% group_by(variable) %>%
   do(gg = {
     worldmap +
@@ -725,13 +740,13 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
                       BCScaled=BCScaled,TEffortScaled=TEffortScaled,CatchScaled=CatchScaled,CPUEScaled=CPUEScaled,
                       BCScaled_y=BCScaled_y,TEffortScaled_y=TEffortScaled_y,CatchScaled_y=CatchScaled_y,CPUEScaled_y=CPUEScaled_y,
                       Changes_bySpecies=BC_tot),
-          file=paste0("Results/",Fishery_name,"_Mosaic=",mosaic,"_FishToTC=",FishToTC,"_FishEfficiency=",FishEfficiency,"_minimize.by=",minimize.by,
-                      "_by.month=",by.month,".rds"))
+          file=file.path(results_dir,paste0(Fishery_name,"_Mosaic=",mosaic,"_FishToTC=",FishToTC,"_FishEfficiency=",FishEfficiency,"_minimize.by=",minimize.by,
+                      "_by.month=",by.month,".rds")))
 } #end of function
 ############################################################################################################
 # the following set of lines of codes run all posible combinations ##############
 #################################################################################
-pdf(file=paste0("Results/","Outs_prop_",Fishery_name,".pdf"))
+pdf(file=file.path(results_dir,paste0("Outs_prop_",Fishery_name,".pdf")))
 DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,hr,minimize.by="prop",Maps=FALSE,by.month=TRUE,Months_closed=seq(1,5,1))
 DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,hr,minimize.by="prop",Maps=FALSE,by.month=FALSE)
 DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,hr,minimize.by="prop",Maps=FALSE,by.month=TRUE)
@@ -746,7 +761,7 @@ DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,hr,minimize.by="prop",mosaic=TRUE,
 DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,hr,minimize.by="prop",mosaic=TRUE,Maps=TRUE)
 dev.off()
 ###############################################################################
-pdf(file=paste0("Results/","Outs_N_",Fishery_name,".pdf"))
+pdf(file=file.path(results_dir,paste0("Outs_N_",Fishery_name,".pdf")))
 DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,hr,minimize.by="N",Maps=FALSE,by.month=TRUE)
 DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,hr,minimize.by="N",Maps=FALSE,by.month=FALSE)
 DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,hr,minimize.by="N",Maps=FALSE,by.month=TRUE)
@@ -761,7 +776,7 @@ DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,hr,minimize.by="N",mosaic=TRUE,Map
 DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,hr,minimize.by="N",mosaic=TRUE,Maps=TRUE)
 dev.off()
 ###############################################################################
-pdf(file=paste0("Results/","Outs_BCrate_",Fishery_name,".pdf"))
+pdf(file=file.path(results_dir,paste0("Outs_BCrate_",Fishery_name,".pdf")))
 DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,hr,minimize.by="rate",Maps=FALSE,by.month=TRUE)
 DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,hr,minimize.by="rate",Maps=FALSE,by.month=FALSE)
 DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,hr,minimize.by="rate",Maps=FALSE,by.month=TRUE)
