@@ -7,7 +7,7 @@
 # The following columns may vary for each case study                        #
 # put first the target species and then the bycatch by species              #
 # you can include any number of target and bycatch species                  #
-# or group of species as your convinience.                                  #
+# or group of species as your convenience.                                  #
 # IMPORTANT: each row in the data file corresponds to a quadrant (lat&long) #
 # by year and month. There is only one record for each of these combinations# 
 # The numbers in each column for target and bycatch species can be          #
@@ -27,7 +27,7 @@
 # 4. running the function DoCalcs generates:                                #
 # a) lines plot: changes in ByCatch, target catch, fishing efficiency and   # 
 #   Effort for each % of area closure or number of months depending on      #
-#   wether by.month=TRUE or FALSE. This is represented by the solid lines   # 
+#   whether by.month=TRUE or FALSE. This is represented by the solid lines   # 
 #   If by.month=F, the dashed lines represent the dinamic closures,         # 
 #   which means closing a different area each year. In this case, each grey #
 #   line represents a year (this can be turned off if tmp.lines=FALSE).     #
@@ -36,9 +36,9 @@
 # d) RDS output with results to be use in future analysis                   #
 # Outputs are saved in a folder called "Results"                            #
 #############################################################################
-
+Fishery_name="Hawaiian_LL_S"  # change here your fishery name!
 # Default names and locations
-defaults = c(Fishery_name="Your_fishery_name",
+defaults = c(Fishery_name=Fishery_name,
              results_dir="Results",
              data_fn = "Data.csv",
              weights_fn = "Weights.csv"
@@ -56,7 +56,7 @@ vns = vns[!(vns %in% c("defaults",names(defaults)))]
 rm(list=vns)
 
 ############################################
-# if you don;t have the following libraries do:
+# if you don't have the following libraries do:
 # install.packages("name of the library") 
 # examples:
 # install.packages(tidyverse)
@@ -79,7 +79,7 @@ library(maps)
 ###########################################################################
 # Read data and weights csv files  ########################################
 ###########################################################################
-# setwd("") # use thsi to set your working directory if needed#############
+# setwd("") # use this to set your working directory if needed#############
 dir.create(results_dir,showWarnings = FALSE)    # 
 ###########################################################################
 D<-read.csv(data_fn,header = T) 
@@ -421,6 +421,7 @@ Calculate<-function(Closed,D,FishToTC,FishEfficiency,hr,by.month) { #Closed (mat
 # tmp.lines=TRUE, add grey lines for each year closed for bycatch species in case of months=F
 DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_closed=seq(1,5,1),
                   minimize.by="prop",mosaic=FALSE,by.month=FALSE,Maps=TRUE,tmp.lines=TRUE){  # do the simulation
+  Corr <- cor(D[,-c(1:4,ncol(D)-1,ncol(D))])
   if (by.month==FALSE){
     Closed_months<-NULL
     D<-aggregate(x=D[,5:ncol(D)],by=list(Lat=D$Lat,Lon=D$Lon,Year=D$Year),FUN=sum)
@@ -461,7 +462,7 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
                           CPUE_Target=Res$NewCatch/(Res$NewEffort*1E3),
                           CPUE_ByCatch= Res$TotalBcByArea/(Res$NewEffort),
                           Closure=ClosedSeq[i])
-        BC[[y]][i,]<-as.matrix(Res$ByCatch) # weighted bycatch
+        BC[[y]][i,]<-as.matrix(Res$ByCatch) 
         TC[[y]][i,]<-as.matrix(Res$New_TCatch_byspecies)
         CPUESave[[y]][i]<-Res$Tcatch/Res$TEffort
         TEffort[[y]][i]<-Res$TEffort
@@ -471,7 +472,14 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
       ResArea[[y]]<-ResArea[[y]][-1,]
       
     }
-    TBC<-apply(BC[[Nyears+1]],1,FUN=sum)
+    BC_w<-list()
+    TC_w<-list()
+    for(i in 1:c(Nyears+1)){
+      BC_w[[i]]<-sweep(BC[[i]], MARGIN=2, as.numeric(rel_wb), `*`) # weighted byCatch
+      TC_w[[i]]<-sweep(TC[[i]], MARGIN=2, as.numeric(rel_wt), `*`) # weighted Target Catch
+    }
+    
+    TBC<-apply(BC_w[[Nyears+1]],1,FUN=sum)
     BCScaled<-TBC/TBC[1] #relative to the first value (no closure)
     CPUEScaled<-CPUESave[[Nyears+1]]/CPUESave[[Nyears+1]][1]
     TEffortScaled<-TEffort[[Nyears+1]]/TEffort[[Nyears+1]][1]
@@ -484,7 +492,7 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
     CatchSave_y<-0
     TBC_tmp<-list()
     for(y in 1:Nyears){
-      TBC_tmp[[y]]<-apply(BC[[y]],1,FUN=sum,na.rm=T)
+      TBC_tmp[[y]]<-apply(BC_w[[y]],1,FUN=sum,na.rm=T)
       TBC_y<-TBC_y+TBC_tmp[[y]]
       TEffort_y<-TEffort_y+TEffort[[y]]
       CatchSave_y<-CatchSave_y+CatchSave[[y]]
@@ -501,15 +509,15 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
     #################################################################################
     # data needed comes from BC, list where each element is a year, and the last one is the total (stationary closure)
     # rows are the closures and columns the species
-    nPol<-length(BC[[Nyears+1]][,1])
-    nSpec<-length(BC[[Nyears+1]][1,])+length(TC[[Nyears+1]][1,])
+    nPol<-length(BC_w[[Nyears+1]][,1])
+    nSpec<-length(BC_w[[Nyears+1]][1,])+length(TC_w[[Nyears+1]][1,])
     BC_D<-matrix(0,nrow = nPol,ncol=nSpec) 
     for(i in 1:Nyears){
-      Total<-cbind(TC[[i]],BC[[i]])
+      Total<-cbind(TC_w[[i]],BC_w[[i]])
       BC_D<-BC_D  + Total 
     }
     
-    BC_S<-cbind(TC[[Nyears+1]],BC[[Nyears+1]])
+    BC_S<-cbind(TC_w[[Nyears+1]],BC_w[[Nyears+1]])
     BC_S_rel<-BC_S[-1,]
     BC_D_rel<-BC_D[-1,]
     for(i in 1:c(nPol-1)){
@@ -559,22 +567,29 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
       Closed_months<-c(Closed_months,Closed[[2]])
       Res<-Calculate(Closed,D=D2,FishToTC,FishEfficiency,hr,by.month=TRUE)
       
-      BC[[i]]<-as.data.frame(Res$ByCatch) # weighted bycatch 
+      BC[[i]]<-as.data.frame(Res$ByCatch) 
       TC[[i]]<-as.data.frame(Res$New_TCatch_byspecies)
       CPUESave[[i]]<-Res$Tcatch/Res$TEffort
       TEffort[[i]]<-Res$TEffort
       CatchSave[[i]]<-Res$Tcatch
       
-      #remove the month with the higest bycatch to calculate the next one
+      #remove the month with the highest bycatch to calculate the next one
       D2<-D2[D2$Month!=Closed[[2]],]
+    }
+    
+    BC_w<-list()
+    TC_w<-list()
+    for(i in 1:c(Nmonths+1)){
+      BC_w[[i]]<-sweep(BC[[i]], MARGIN=2, as.numeric(rel_wb), `*`) # weighted byCatch
+      TC_w[[i]]<-sweep(TC[[i]], MARGIN=2, as.numeric(rel_wt), `*`) # weighted Target Catch
     }
     
     TBC<-NULL
     CPUEScaled<-NULL
     TEffortScaled<-NULL
     CatchScaled<-NULL
-    for(i in 1:length(BC))  {
-      tmp<-c(apply(BC[[i]],1,FUN=sum))
+    for(i in 1:length(BC_w))  {
+      tmp<-c(apply(BC_w[[i]],1,FUN=sum))
       TBC<-c(TBC,tmp)
       tmp2<-CPUESave[[i]]/CPUESave[[1]]
       CPUEScaled<-c(CPUEScaled,tmp2)
@@ -583,6 +598,7 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
       tmp4<-CatchSave[[i]]/CatchSave[[1]]
       CatchScaled<-c(CatchScaled,tmp4)
     }
+    
     BCScaled<-TBC/TBC[1] #relative to the first value (no closure)
     
     ######### for barplot
@@ -590,10 +606,10 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
     # data needed comes from BC, list where each element is a year, and the last one is the total (stationary closure)
     # rows are the closures and columns the species
     nPol<-length(BC)
-    nSpec<-ncol(BC[[1]])+ncol(TC[[1]])
+    nSpec<-ncol(BC_w[[1]])+ncol(TC_w[[1]])
     BC_S<-matrix(0,nrow = nPol,ncol=nSpec) 
     for(i in 1:c(Nmonths+1)){
-      BC_S[i,]<- t(rbind(t(TC[[i]]),t(BC[[i]])))
+      BC_S[i,]<- t(rbind(t(TC_w[[i]]),t(BC_w[[i]])))
     }
     rel<-BC_S[1,]
     BC_S_rel<-BC_S[-1,]
@@ -664,28 +680,6 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
            legend=c("By-Catch","Target-Catch","Fishing Efficiency changes","Effort"),
            col=c("#BB000099","#80008099","#458B0099","#0000FF99"),lwd=2,cex=0.8)
     
-    # mydat <- data.frame(Months_closed=c(0,Months_closed),Closed_months=c(0,Closed_months),CatchScaled,CPUEScaled,TEffortScaled) %>% 
-    #   inner_join(data.frame(var=names(BCScaled),values=data.frame(BCScaled)) %>% 
-    #   group_by(var) %>% 
-    #   mutate(Months_closed=c(0,Months_closed)) %>% 
-    #   spread(var,BCScaled) %>% 
-    #   gather(var,values,-Months_closed))
-    # 
-    # plot(mydat$Months_closed,mydat$Months_closed,col="#BB000099",ylim=c(0,1.6),xlab="ID Months closed",type="n",
-    #      ylab="Relative Amount",cex.main=0.8,xaxt='n',
-    #      main=paste("Minimized by=",minimize.by,",", "Fish to TC =",FishToTC,",","Fishing Efficiency changes =",FishEfficiency))
-    # axis(side = 1,at = Months_closed,labels = Closed_months)
-    # #   
-    # lines(c(0,Months_closed),BCScaled,col="#BB000099",lwd=3)
-    # lines(c(0,Months_closed),CatchScaled,lwd=3,col="#80008099",type="b",pch=16) # purple
-    # lines(c(0,Months_closed),CPUEScaled,lwd=3,col="#458B0099") #green
-    # lines(c(0,Months_closed),TEffortScaled,lwd=3,col="#0000FF99") #blue
-    # 
-    legend("bottomleft",pch=c(-1,16,-1,-1),bty = "n",
-           legend=c("By-Catch","Target-Catch","Fishing Efficiency changes","Effort"),
-           col=c("#BB000099","#80008099","#458B0099","#0000FF99"),lwd=2,cex=0.8)
-    
-    
   }
   # barplot with ggplot
   if(by.month==FALSE){
@@ -736,13 +730,13 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
       }
     }
   }
-  saveRDS(object=list(Closed_Seq=ClosedSeq,Closed_months=Closed_months,# ResArea,BC=BC,CPUE_t=CPUESave,TEffort=TEffort,Catch=CatchSave,
+  saveRDS(object=list(Closed_Seq=ClosedSeq,Closed_months=Closed_months, BC=BC, BC_w=BC_w, TC=TC, TC_w=TC_w,
                       BCScaled=BCScaled,TEffortScaled=TEffortScaled,CatchScaled=CatchScaled,CPUEScaled=CPUEScaled,
                       BCScaled_y=BCScaled_y,TEffortScaled_y=TEffortScaled_y,CatchScaled_y=CatchScaled_y,CPUEScaled_y=CPUEScaled_y,
-                      Changes_bySpecies=BC_tot),
-          file=file.path(results_dir,paste0(Fishery_name,"_Mosaic=",mosaic,"_FishToTC=",FishToTC,"_FishEfficiency=",FishEfficiency,"_minimize.by=",minimize.by,
-                      "_by.month=",by.month,".rds")))
-} #end of function
+                      Changes_bySpecies=BC_tot, Corr=Corr),
+          file=paste0("Results/",Fishery_name,"_Mosaic=",mosaic,"_FishToTC=",FishToTC,"_FishEfficiency=",FishEfficiency,"_minimize.by=",minimize.by,
+                      "_by.month=",by.month,".rds"))
+} # end of function
 ############################################################################################################
 # the following set of lines of codes run all posible combinations ##############
 #################################################################################
