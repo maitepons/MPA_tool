@@ -36,9 +36,8 @@
 # d) RDS output with results to be use in future analysis                   #
 # Outputs are saved in a folder called "Results"                            #
 #############################################################################
-Fishery_name="Hawaiian_LL_S"  # change here your fishery name!
 # Default names and locations
-defaults = c(Fishery_name=Fishery_name,
+defaults = c(Fishery_name="Hawaiian_LL_S", # Set your fishery name here
              results_dir="Results",
              data_fn = "Data.csv",
              weights_fn = "Weights.csv"
