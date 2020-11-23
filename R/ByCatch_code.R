@@ -733,8 +733,8 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
                       BCScaled=BCScaled,TEffortScaled=TEffortScaled,CatchScaled=CatchScaled,CPUEScaled=CPUEScaled,
                       BCScaled_y=BCScaled_y,TEffortScaled_y=TEffortScaled_y,CatchScaled_y=CatchScaled_y,CPUEScaled_y=CPUEScaled_y,
                       Changes_bySpecies=BC_tot, Corr=Corr),
-          file=paste0("Results/",Fishery_name,"_Mosaic=",mosaic,"_FishToTC=",FishToTC,"_FishEfficiency=",FishEfficiency,"_minimize.by=",minimize.by,
-                      "_by.month=",by.month,".rds"))
+          file=file.path(results_dir,paste0(Fishery_name,"_Mosaic=",mosaic,"_FishToTC=",FishToTC,"_FishEfficiency=",FishEfficiency,"_minimize.by=",minimize.by,
+                      "_by.month=",by.month,".rds")))
 } # end of function
 ############################################################################################################
 # the following set of lines of codes run all posible combinations ##############
