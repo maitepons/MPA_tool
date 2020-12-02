@@ -1,47 +1,49 @@
-############## Instructions #################################################
-# Format of data entries:                                                   #
-# There are 2 csv files that are needed,                                    #
-# one called Data.csv and another one called Weights.csv                    #
-# 1. data.csv: the first 5 columns are the same for all case studies:       # 
-# Lat	Lon	Year Month Effort                                                 #
-# The following columns may vary for each case study                        #
-# put first the target species and then the bycatch by species              #
-# you can include any number of target and bycatch species                  #
-# or group of species as your convenience.                                  #
-# IMPORTANT: each row in the data file corresponds to a quadrant (lat&long) #
-# by year and month. There is only one record for each of these combinations# 
-# The numbers in each column for target and bycatch species can be          #
-# in numbers or biomass.                                                    #
-# 2. Weights.csv: this csv has in the first row the names of the target     #
-# species in the same order as in the Data.csv file and the second row      #
-# is the weight for each target species. They should sum up to 1.           #
-# The third row is the names of the Bycatch species                         #
-# in the same order as in the Data.csv file. The fourth row is the weight   #
-# for each bycatch species and they also should sum up to 1.                #
-# Outputs:                                                                  #
-# Running the code generates:                                               #
-# 1. Plot with original proportions of catch by species to total catch      #
-#    and proportions based in specified weights                             #
-# 2. Correlation plot among Effort, target and bycatch species              #    
-# 3. Maps with original data                                                #
-# 4. running the function DoCalcs generates:                                #
-# a) lines plot: changes in ByCatch, target catch, fishing efficiency and   # 
-#   Effort for each % of area closure or number of months depending on      #
-#   whether by.month=TRUE or FALSE. This is represented by the solid lines   # 
-#   If by.month=F, the dashed lines represent the dinamic closures,         # 
-#   which means closing a different area each year. In this case, each grey #
-#   line represents a year (this can be turned off if tmp.lines=FALSE).     #
-# b) barplot: showing relative changes in catch for each species            #
-# c) maps: showing area closed in grey and effort, target and ByCatch CPUE  #
-# d) RDS output with results to be use in future analysis                   #
-# Outputs are saved in a folder called "Results"                            #
-#############################################################################
+############## Instructions ####################################################
+# Format of data entries:                                                      #
+# There are 2 csv files that are needed:                                       #
+# one called Data.csv and another one called Weights.csv                       #
+# 1. data.csv: the first 5 columns are the same for all case studies:          # 
+# Lat	Lon	Year Month Effort                                                    #
+# The following columns may vary for each case study                           #
+# put first the target species and then the bycatch by species                 #
+# you can include any number of target and bycatch species                     #
+# or group of species as your convenience.                                     #
+# IMPORTANT: each row in the data file corresponds to a quadrant (lat&long)    #
+# by year and month. There is only one record for each of these combinations   # 
+# The numbers in each column for target and by-catch species can be            #
+# in numbers or biomass but it has to be in the same units for each group.     #
+# For example: all target species in weight and all by-catch species in numbers#
+# 2. Weights.csv: this csv has in the first row the names of the target        #
+# species in the same order as in the Data.csv file and the second row         #
+# is the weight for each target species. They should sum up to 1.              #
+# The third row is the names of the by-catch species                           #
+# in the same order as in the Data.csv file. The fourth row is the weight      #
+# for each by-catch species and they also should sum up to 1.                  #
+# Outputs:                                                                     #
+# Running the code generates:                                                  #
+# 1. Plot with original proportions of catch by species to the total catch     #
+#    in blue, and proportions based in specified weights in red                #
+# 2. Correlation plot among Effort, target and by-catch species,               #
+#    including totals (weighted and unweighted)                                #    
+# 3. Maps with original data                                                   #
+# 4. running the function DoCalcs generates:                                   #
+# a) lines plot: changes in by-catch, target catch, fishing efficiency and     # 
+#   Effort for each % of area closure or number of months depending on         #
+#   whether by.month=TRUE or FALSE. This is represented by the solid lines     # 
+#   If by.month=F, the dashed lines represent the dynamic closures,            # 
+#   which means closing a different area each year. In this case, each gray    #
+#   line represents a year (this can be turned off if tmp.lines=FALSE).        #
+# b) barplot: showing relative changes in catch for each species               #
+# c) maps: showing area closed in gray and effort, target and by-catch CPUE    #
+# d) RDS output with results to be use for other plots and analysis of all     #
+#    case studies combined. There is no raw data in the outputs                #
+# All Outputs (plots and rds) are saved in a folder called "Results"           #
+################################################################################
 # Default names and locations
-defaults = c(Fishery_name="Hawaiian_LL_S", # Set your fishery name here
-             results_dir="Results",
-             data_fn = "Data.csv",
-             weights_fn = "Weights.csv"
-             )
+defaults = c(Fishery_name="Your_fishery_name", # Set your fishery name here! only change this entry (not the others)
+             results_dir="Results", # default
+             data_fn = "Data.csv", # default
+             weights_fn = "Weights.csv") # default
 
 # Set variables to default values if present in workspace
 for (vn in names(defaults)) {
@@ -55,7 +57,7 @@ vns = vns[!(vns %in% c("defaults",names(defaults)))]
 rm(list=vns)
 
 ############################################
-# if you don't have the following libraries do:
+# if you don't have the following libraries needed to run the code do:
 # install.packages("name of the library") 
 # examples:
 # install.packages(tidyverse)
@@ -72,65 +74,65 @@ library(reshape2)
 library(grid)
 library(gridExtra)
 library(ggcorrplot)
-library(dplyr)
+library(dplyr) #make shure you have the last version of this package or you might have problems with the function accross not being recognized 
 library(maps)
 
 ###########################################################################
 # Read data and weights csv files  ########################################
 ###########################################################################
-# setwd("") # use this to set your working directory if needed#############
-dir.create(results_dir,showWarnings = FALSE)    # 
+dir.create(results_dir,showWarnings = FALSE)    # create folder called "Results" in your directory
 ###########################################################################
-D<-read.csv(data_fn,header = T) 
-D<-D[complete.cases(D),]
-
-Tweights<-read.csv(weights_fn,nrows = 1)%>%
+# reading data
+D <- read.csv(data_fn, header = T) 
+D <- D[complete.cases(D),]
+# reading weights
+Tweights <- read.csv(weights_fn, nrows = 1) %>%
   select_if(~ !any(is.na(.))) 
 
-BCweights<-read.csv(weights_fn,nrows = 2,skip = 2)%>%
+BCweights <- read.csv(weights_fn, nrows = 2, skip = 2) %>%
   select_if(~ !any(is.na(.))) 
 
-NT<-ncol(Tweights) # number of target species 
-NBC<-ncol(BCweights) # number of byCatch species
-
-### Effort in thousands 
-D$Effort<-D$Effort/1000
-
-BCNames<-colnames(BCweights)
-TNames<-colnames(Tweights)
-
-col.BC <- which(colnames(D)%in%BCNames)
-col.T <- which(colnames(D)%in%TNames)
-
-####################################################
-i=which(D$Lon<0)
-D$Lon[i]<- D$Lon[i]+ 360 #  rescale to 360 degrees to have all positive values for longitude
-D$Lat<- D$Lat+ 90  #  rescale to 180 degrees to have all positive values for latitude
-####################################################
-hr=.1   #a guess at the overall harvest rate for target species 
-#######################################################
 # sum(BCweights) # weights should sum up to 1
 # sum(Tweights) # weights should sum up to 1
-# multiply numbers of bycatch species by weights
+
+NT <- ncol(Tweights) # number of target species 
+NBC <- ncol(BCweights) # number of by-catch species
+
+### Effort in thousands (any unit)
+D$Effort <- D$Effort/1000
+
+BCNames <- colnames(BCweights) # name of the by-catch species
+TNames <- colnames(Tweights)   # name of the target species
+
+col.BC <- which(colnames(D)%in%BCNames)  # columns where the by-catch species are
+col.T <- which(colnames(D)%in%TNames)    # columns where the target species are
+
+####################################################
+i = which(D$Lon<0)
+D$Lon[i] <- D$Lon[i] + 360 #  re-scale to 360 degrees to have all positive values for longitude
+D$Lat <- D$Lat + 90       #  re-scale to 180 degrees to have all positive values for latitude
+####################################################
+hr=.1   # a guess at the overall harvest rate for target species 
+#######################################################
+# sum all by-catch and target catch 
 mysums.B <- D %>% summarise(across(.cols=all_of(BCNames),sum))
 mysums.T <- D %>% summarise(across(.cols=all_of(TNames),sum))
-# If you have problems with the fucntion across not being recognized, 
-# please re-install the package 'dplyr' and re-start R. Thanks 
+# If you have problems with the function across not being recognized, please re-install the package 'dplyr' and re-start R. Thanks 
 
-tmp_wb<-BCweights/mysums.B
-tmp_wt<-Tweights/mysums.T
+tmp_wb <- BCweights/mysums.B
+tmp_wt <- Tweights/mysums.T
+rel_wb <- tmp_wb/sum(tmp_wb)
+rel_wt <- tmp_wt/sum(tmp_wt)
 
-rel_wb<-tmp_wb/sum(tmp_wb)
 # sum(rel_wb)
-rel_wt<-tmp_wt/sum(tmp_wt)
 # sum(rel_wt)
 
-# plot weighted and unweighted proportions
-D_w<-D # keep D unweighted
+# plot weighted and un-weighted proportions
+D_w <- D # keep D un-weighted
 
 for (i in 1:nrow(D_w)){
-  D_w[i,col.BC]<- D_w[i,col.BC]*rel_wb #asign bycatch weights
-  D_w[i,col.T]<- D_w[i,col.T]*rel_wt   #asign target weights
+  D_w[i,col.BC] <- D_w[i,col.BC]*rel_wb # assign by-catch weights
+  D_w[i,col.T] <- D_w[i,col.T]*rel_wt   # assign target weights
 } 
 
 pdf(file=file.path(results_dir,paste0("Proportions",Fishery_name,".pdf")),width = 8,height = 6)
@@ -140,7 +142,7 @@ plot(as.numeric(D %>% summarise(across(.cols=all_of(TNames),sum)))/sum(D[,TNames
 points(as.numeric(D_w %>% summarise(across(.cols=all_of(TNames),sum)))/sum(D_w[,TNames]),col="red",pch=19)
 axis(side = 1, at = c(1:NT),labels = c(TNames),las=2)
 title(main="Target",line = 0.5)
-legend("topright",col=c("blue","red"),pch=19,legend = c("Unweighted","Weighted"))
+legend("topright",col=c("blue","red"),pch=19,legend = c("Un-weighted","Weighted"))
 
 plot(as.numeric(D %>% summarise(across(.cols=all_of(BCNames),sum)))/sum(D[,BCNames]),xaxt='n',
      col="blue",pch=19,xlab="",ylab="")
@@ -150,26 +152,27 @@ title(main="Bycatch",line = 0.5)
 dev.off()
 
 D_w <- D_w %>% 
-  mutate(TBC.w=rowSums(.[BCNames]),# total weighted By-Catch
-         Target.w=rowSums(.[TNames])) %>% # total weighted By-Catch
-  filter(Target.w>0)# eliminate sets with target catch =0 to be able to calculate the proportion of Bycatch/target
-############
+  mutate(TBC.w=rowSums(.[BCNames]), # total weighted By-Catch
+         Target.w=rowSums(.[TNames])) %>% # total weighted Catch
+  filter(Target.w>0)# eliminate sets with target catch = 0 to be able to calculate the proportion of By-catch/target
+########################################################################
 D <- D %>% 
-  mutate(TBC=rowSums(.[BCNames]),# total weighted By-Catch
-         Target=rowSums(.[TNames])) %>% # total weighted By-Catch
+  mutate(TBC=rowSums(.[BCNames]), # total weighted By-Catch
+         Target=rowSums(.[TNames])) %>% # total weighted Catch
   filter(Target>0)
-# add to D weighted columns for total bycatch and total target
-D$TBC.w<-D_w$TBC.w
-D$Target.w<-D_w$Target.w
+# add to D weighted columns for total by-catch and total target catch
+D$TBC.w <- D_w$TBC.w
+D$Target.w <- D_w$Target.w
 ###### correlation plot
 pdf(file=file.path(results_dir,paste0("Corr_plot_",Fishery_name,".pdf")))
-ggcorrplot(round(cor(D[,-c(1:4,ncol(D)-1,ncol(D))]), 1), hc.order = FALSE, type = "lower",lab=TRUE,
+ggcorrplot(round(cor(D[,-c(1:4)]), 1), hc.order = FALSE, type = "lower",lab=TRUE,
            outline.col = "white")
 dev.off()
 
 # create a map with all years combined
-D_sum<-aggregate(x=D[,5:ncol(D)],by=list(Lat=D$Lat,Lon=D$Lon),FUN=sum)
-D_sum$Prop<-D_sum$TBC.w/D_sum$Target.w # % of ByCatch to target species
+D_sum <- aggregate(x=D[,5:ncol(D)],by=list(Lat=D$Lat,Lon=D$Lon),FUN=sum)
+D_sum$Prop <- D_sum$TBC/D_sum$Target # proportion of By-Catch to target species
+D_sum$Prop.w <- D_sum$TBC.w/D_sum$Target.w # proportion of By-Catch to target species weighted
 
 Tmp<-melt(D_sum,id.vars = c("Lat","Lon"))
 head(Tmp)
@@ -179,14 +182,14 @@ str(Tmp)
 # Maps
 world <- map_data("world")
 head(world)
-i=which(world$long<0)
-world$long[i]<- world$long[i]+ 360 #  rescale to 360 degrees to have all positive values for longitude
-world$lat<- world$lat+ 90  #  rescale to 180 degrees to have all positive values for latitude
+i = which(world$long<0)
+world$long[i] <- world$long[i]+ 360 #  re-scale to 360 degrees to have all positive values for longitude
+world$lat <- world$lat+ 90  #  re-scale to 180 degrees to have all positive values for latitude
 
-world.cut<-world[world$lat > min(D$Lat)-5 & world$lat < max(D$Lat)+5 ,]
-world.cut<-world.cut[world.cut$long > min(D$Lon)-5 & world.cut$long < max(D$Lon)+5 ,]
+world.cut <- world[world$lat > min(D$Lat)-5 & world$lat < max(D$Lat)+5 ,]
+world.cut <- world.cut[world.cut$long > min(D$Lon)-5 & world.cut$long < max(D$Lon)+5 ,]
 
-#This creates a quick and dirty world map - playing around with the themes, aesthetics, and device dimensions is recommended!
+# This creates a quick and dirty world map - playing around with the themes, aesthetics, and device dimensions is recommended!
 worldmap <- ggplot(world.cut, aes(x=long, y=lat)) +
   geom_polygon(aes(group=group)) +
   theme(panel.background = element_rect(fill="skyblue", colour="skyblue"),
@@ -209,194 +212,199 @@ Tmp %>% group_by(variable) %>%
 dev.off()
 
 ###############################################
-GlobalTC<-sum(D[,col.T])
-GlobalEffort<-sum(D$Effort)
+GlobalTC <- sum(D[,col.T])  # total Catch for target species 
+GlobalEffort <- sum(D$Effort) # total Effort 
 ###############################################
-# this routine searchers over spatial locations of closed areas 
+# the next function searchers over spatial locations of closed areas 
 # to find the pattern of closed areas that will have the max reduction in: 
-# 1) "N": bycatch in numbers; 2) "rate": bycatch CPUE; 3) "prop": ByCatch/target   
+# 1) "N": by-catch in numbers; 2) "rate": by-catch CPUE; 3) "prop": By-Catch/target   
 # it will not be a square, but the areas closest to a centroid if mosaic=F
-# if Mosaic =T, closes quadrants where bycatch is minimized, they don't have to be conected
-# By.month=T, closes one month instead of an area
-FindClose<-function(NClose,D,minimize.by="prop",mosaic=F,by.month=FALSE){
+# if Mosaic = T, quadrants where by-catch is minimized can be closed independently, they don't have to be connected
+# if By.month = T, one to five months are closed instead of an area
+
+FindClose <- function(NClose, D, weights=TRUE, minimize.by="prop", mosaic=F, by.month=FALSE){
+  if (weights == TRUE){
+    Bycatch <- D$TBC.w
+    Target <- D$Target.w
+  } else {
+    Bycatch <- D$TBC
+    Target <- D$Target
+  }
   if (by.month==FALSE){
     
-    col.BC<-seq(from=ncol(D)- NBC -1 ,to=ncol(D)-4)
+    Narea <- nrow(D) # Number of areas: this is just the number of rows in the data frame
     
-    Narea<-nrow(D) # Number of areas: this is just the number of rows in the data frame
-    
-    Bycatch<-D %>% dplyr::select(BCNames) # weighted numbers
-    #now loop over over centroids
-    BestByCatch=0 #the target bycatch to beat
+    # now loop over centroids
+    BestByCatch = 0 # the target by-catch to beat
     if (NClose>0) {
       if(mosaic==F){
         for (a in 1:Narea){
-          lat<-D$Lat[a]
-          lon<-D$Lon[a]
+          lat <- D$Lat[a]
+          lon <- D$Lon[a]
           TempClosed<-array(dim=Narea,FALSE)
           if (mosaic==F){
-            d<-sqrt((D$Lat-lat)^2+(D$Lon-lon)^2) 
-            ord<-order(d)
-            TempClosed[ord[1:NClose]]<-TRUE }# closed areas for each cell centroid
+            d <- sqrt((D$Lat-lat)^2+(D$Lon-lon)^2) 
+            ord <- order(d)
+            TempClosed[ord[1:NClose]] <- TRUE } # closed areas for each cell centroid
           
           i<-which(TempClosed==TRUE)
           
           if(minimize.by=="prop"){
+            Tbycatch <- sum(Bycatch[i])/sum(Target[i]) # proportion
             
-            Tbycatch<-sum(Bycatch[i,])/sum(D$Target.w[i]) #proportion
           } else if (minimize.by=="N"){
-            Tbycatch<-sum(Bycatch[i,])
+            Tbycatch <- sum(Bycatch[i])  # Numbers
+            
           } else {
-            Tbycatch<-sum(Bycatch[i,])/sum(D$Effort[i]) #CPUE
+            Tbycatch <- sum(Bycatch[i])/sum(D$Effort[i]) # CPUE
           }
-          if (Tbycatch>BestByCatch){ # it only replaces the Tbycatch if it is higher than the BestByCatch calculated for the previous area [a]
-            BestByCatch<-Tbycatch;Closed<-TempClosed;BestLat<-lat;BestLon<-lon}
           
-        } #end areas
+          if (Tbycatch > BestByCatch){ # it only replaces the Tbycatch if it is higher than the BestByCatch calculated for the previous area [a]
+            BestByCatch <- Tbycatch; Closed <- TempClosed; BestLat <- lat; BestLon <- lon}
+          
+        } # end areas
         
       } else {
         # closed area mosaic
-        TempClosed<-array(dim=Narea,FALSE)
-        if(minimize.by=="prop"){
-          j<-order(D$TBC.w/D$Target.w,decreasing = TRUE)[1:NClose] # #proportion
-        } else if (minimize.by=="N"){
-          j<-order(D$TBC.w,decreasing = TRUE)[1:NClose] # numbers
+        TempClosed <- array(dim=Narea,FALSE)
+        if(minimize.by == "prop"){
+          j <- order(Bycatch/Target, decreasing = TRUE)[1:NClose] # proportion
+        } else if (minimize.by == "N"){
+          j <- order(Bycatch, decreasing = TRUE)[1:NClose] # numbers
         } else {
-          j<-order(D$TBC.w/D$Effort,decreasing = TRUE)[1:NClose] #CPUE
+          j <- order(Bycatch/D$Effort,decreasing = TRUE)[1:NClose] # CPUE
         }
         # closed area mosaic
-        TempClosed[j]<-TRUE
-        Closed<-TempClosed
+        TempClosed[j] <- TRUE
+        Closed <- TempClosed
       }
     }
     else{
-      Closed<-NA
-      for (a in 1:Narea){Closed[a]=FALSE}
+      Closed <- NA
+      for (a in 1:Narea){Closed[a] = FALSE}
     }
-    M<-NULL
+    M <- NULL
   }
   if (by.month == TRUE){
     
-    TempClosed<-array(dim=nrow(D),FALSE)
+    TempClosed <- array(dim=nrow(D), FALSE)
     
-    if(minimize.by=="N"){
-      Table.month<-aggregate(x=D$TBC.w,by=list(Month=D$Month),FUN=sum) # bycatch in numbers
-    } else if (minimize.by=="prop"){
-      Table.month<-aggregate(x=D$TBC.w/D$Target.w,by=list(Month=D$Month),FUN=sum)  # bycatch in numbers
+    if(minimize.by == "N"){
+      Table.month <- aggregate(x=Bycatch, by=list(Month=D$Month), FUN=sum) # by-catch in numbers
+    } else if (minimize.by == "prop"){
+      Table.month <- aggregate(x=Bycatch/Target, by=list(Month=D$Month), FUN=sum)  # prop
     } else {
-      Table.month<-aggregate(x=D$TBC.w/D$Effort,by=list(Month=D$Month),FUN=sum) 
+      Table.month <- aggregate(x=Bycatch/D$Effort, by=list(Month=D$Month), FUN=sum) # CPUE
     }
-    M<-Table.month$Month[which(Table.month$x==max(Table.month$x))]
+    M <- Table.month$Month[which(Table.month$x==max(Table.month$x))]
     
-    M<-M[1]  # sometimes it doesn't work if there is the same number of bycatch in different months when minimized.by="N"
-    i<-which(D$Month==M)
-    TempClosed[i]<-TRUE
-    Closed<-TempClosed
+    M <- M[1]  # sometimes it doesn't work if there is the same number of by-catch in different months when minimized.by = "N"
+    i <- which(D$Month == M)
+    TempClosed[i] <- TRUE
+    Closed <- TempClosed
     
   }
-  return(list(Closed,M)) # matrix of TRUES and FALSES
+  return(list(Closed, M)) # matrix of TRUES and FALSES
 }
-
+#Closed<-FindClose(NClose=50,weights=TRUE, D,minimize.by="N",mosaic=F,by.month=FALSE);sum(Closed[[1]])
 ###################################################################################
-#FishToTC=T , fishing to reach the same total target catch
-#FishToTC=F , total taget catch can change but effort remains the same, 
-# effort inside closed area move to open areas proportional to the effort already in those open quadrants 
-#FishEfficiency=T  CPUE of target species can change in open areas based in arbitrary exploitation rate
-#FishEfficiency=F  CPUE of target species is the same in each open quadrant 
-Calculate<-function(Closed,D,FishToTC,FishEfficiency,hr,by.month) { #Closed (matrix)comes from the previous function
+# FishToTC = T , fish to reach the same total target catch, effort can change
+# FishToTC = F , total target catch can change but effort remains the same, 
+# effort inside the closed area moves to open areas proportional to the effort already in those open quadrants 
+# FishEfficiency = T  CPUE of the target species can change in open areas based in arbitrary exploitation rate
+# FishEfficiency = F  CPUE of the target species is the same in each open quadrant, CPUe doesn't change 
+Calculate <- function(Closed,D,FishToTC,FishEfficiency, hr, by.month) { #Closed (matrix)comes from the previous function
   
-  CPUE<-D$Target/D$Effort # CPUE target species
+  CPUE <- D$Target/D$Effort # CPUE target species
   
-  T_CPUE<-D %>% 
+  T_CPUE <- D %>%   # CPUE for each target species
     rowwise() %>% 
-    transmute(across(TNames,function(x)x/Effort)) %>% 
+    transmute(across(all_of(TNames),function(x)x/Effort)) %>% 
     data.frame
-  i<-which(Closed[[1]]==FALSE) # open area or open months
+  i <- which(Closed[[1]]==FALSE) # open area or open months
   
   
-  TotalE<-sum(D$Effort)
-  Narea<-length(Closed[[1]]) # Total number of areas (grids)
-  q<-Narea*(-log(1-hr)/TotalE)  #this is the q for the target species 
-  InitialCatch<-D$Target 
-  InitialB<-InitialCatch/(1-exp(-q*D$Effort))  #the initial biomass in each cell for the target species  
+  TotalE <- sum(D$Effort)
+  Narea <- length(Closed[[1]]) # Total number of areas (grids)
+  q <- Narea*(-log(1-hr)/TotalE)  # this is the q (catchability) for the target species 
+  InitialCatch <- D$Target 
+  InitialB <- InitialCatch/(1-exp(-q*D$Effort))  #the initial biomass in each cell for the target species  
   
+  BeforeBC <- D %>% summarise(across(.cols=all_of(BCNames),sum)) # before closure
   
-  
-  BeforeBC <- D %>% summarise(across(.cols=all_of(BCNames),sum))
-  
-  if( FishToTC==FALSE ) {  # total catch can change but not total effort, sum(NewEffort)==sum(D$Effort)
-    OldEffort<-sum(D$Effort[i]) # old effort in open areas
-    if(by.month==TRUE){
-      DisplacedEffort<-GlobalEffort-OldEffort # effort in closed months
+  if( FishToTC == FALSE ) {  # total catch can change but not total effort, sum(NewEffort)==sum(D$Effort)
+    OldEffort <- sum(D$Effort[i]) # old effort in open areas
+    if(by.month == TRUE){
+      DisplacedEffort <- GlobalEffort-OldEffort # effort in closed months
     }
     
-    if(by.month==FALSE){
-      DisplacedEffort<-sum(D$Effort[-i])  # total catch for the target species should be the same, effort can change 
+    if(by.month == FALSE){
+      DisplacedEffort <- sum(D$Effort[-i])  # total catch for the target species should be the same, effort can change 
     }
     
-    NewEffort<-array(dim=length(D$Effort),0)
-    NewEffort[i]<-DisplacedEffort*D$Effort[i]/sum(D$Effort[i])+D$Effort[i] 
+    NewEffort <- array(dim=length(D$Effort),0)
+    NewEffort[i] <- DisplacedEffort*D$Effort[i]/sum(D$Effort[i])+D$Effort[i] 
     
-  }   else { #FishToTC==TRUE
+  }   else { #FishToTC == TRUE
     
     # fishing to reach same TC 
-    if(by.month==TRUE){
-      TC<-GlobalTC
+    if(by.month == TRUE){
+      TC <- GlobalTC
     }
     
-    if(by.month==FALSE){
-      TC<-sum(D$Target) # catch for each target species should be the same, but effort can change 
+    if(by.month == FALSE){
+      TC <- sum(D$Target) # catch for each target species should be the same, but effort can change 
     }
     
-    CatchFromOpen<- sum(D$Target[i])  # catch in open areas 
+    CatchFromOpen <- sum(D$Target[i])  # catch in open areas 
     
-    CatchFromOpen_byspecies<- D[i,] %>% summarise(across(.cols=all_of(TNames),sum))
+    CatchFromOpen_byspecies <- D[i,] %>% summarise(across(.cols=all_of(TNames),sum))
     
-    HookIncrease<-TC/CatchFromOpen 
-    NewEffort<-array(dim=length(D$Effort),0)
-    NewEffort[i]<-HookIncrease*D$Effort[i] # New effort outside 
-    OldEffort<-sum(D$Effort[i]) # old effort outside 
+    HookIncrease <- TC/CatchFromOpen 
+    NewEffort <- array(dim=length(D$Effort),0)
+    NewEffort[i] <- HookIncrease*D$Effort[i] # New effort outside 
+    OldEffort <- sum(D$Effort[i]) # old effort outside 
     
   }  # end of fishing to TC
-  NewCatch<-NewEffort*CPUE
-  NewCatch_byspecies<-NewEffort*T_CPUE
-  Tcatch<-sum(NewEffort*CPUE)  # if CPUE (fishing Efficiency) doesn't change  sum(D$target[i])/sum(D$Effort[i]) = = TC/sum(NewEffort)
+  NewCatch <- NewEffort*CPUE
+  NewCatch_byspecies <- NewEffort*T_CPUE
+  Tcatch <- sum(NewEffort*CPUE) # if CPUE (fishing Efficiency) doesn't change  sum(D$target[i])/sum(D$Effort[i]) = = TC/sum(NewEffort)
   #######################################################################################
   #at this point we have NewEffort (check, NewEffort when FishToTC= TRUE or FALSE is the same)
   if (FishEfficiency == TRUE){ # CPUE can change 
-    Catch<- D$Target   # catch by area before closure
+    Catch <- D$Target   # catch by area before closure
     
     Catch_byspecies<- D %>% dplyr::select(TNames)   # catch by area before closure by species
-    Abu<-Catch/(1-exp(-q*D$Effort)) #Abundance by area
-    Abu_byspecies<-Catch_byspecies/(1-exp(-q*D$Effort))
-    NewCatch<-Abu*(1-exp(-q*NewEffort))  #new catch by area
-    NewCatch_byspecies<-Abu_byspecies*(1-exp(-q*NewEffort))
+    Abu <- Catch/(1-exp(-q*D$Effort)) #Abundance by area
+    Abu_byspecies <- Catch_byspecies/(1-exp(-q*D$Effort))
+    NewCatch <- Abu*(1-exp(-q*NewEffort))  #new catch by area
+    NewCatch_byspecies <- Abu_byspecies*(1-exp(-q*NewEffort))
     
     Tcatch<-sum(NewCatch)
-    if  (FishToTC==TRUE) { #CPUE will change do an incremental calculation
+    if  (FishToTC == TRUE) { #CPUE will change do an incremental calculation
       for (step in 1:20) {  #iterate
-        if(by.month==TRUE){
-          TC<-GlobalTC
+        if(by.month == TRUE){
+          TC <- GlobalTC
         }
-        if(by.month==FALSE){
-          TC<-sum(D$Target) # total catch for the target species should be the same, effort can change 
+        if(by.month == FALSE){
+          TC <- sum(D$Target) # total catch for the target species should be the same, effort can change 
         }
-        ratio<-sum(NewCatch)/TC
-        NewEffort<-NewEffort/ratio
-        NewCatch<-Abu*(1-exp(-NewEffort*q))  #new catch by area
-        NewCatch_byspecies<-Abu_byspecies*(1-exp(-NewEffort*q))  #new catch by area
-        Tcatch<-sum(NewCatch)
+        ratio <- sum(NewCatch)/TC
+        NewEffort <- NewEffort/ratio
+        NewCatch <- Abu*(1-exp(-NewEffort*q))  #new catch by area
+        NewCatch_byspecies <- Abu_byspecies*(1-exp(-NewEffort*q))  #new catch by area
+        Tcatch <- sum(NewCatch)
       } 
     }
   }
   
   
-  BcCPUE<-D %>% 
+  BcCPUE <-D %>% 
     rowwise() %>% 
-    transmute(across(BCNames,function(x)x/Effort)) %>% 
+    transmute(across(BCNames, function(x)x/Effort)) %>% 
     data.frame
   
-  BcByArea<-BcCPUE*NewEffort 
+  BcByArea <- BcCPUE*NewEffort 
   
   TotalBcByArea <- BcByArea %>% transmute(rowSums(.)) %>% pull
   
@@ -405,27 +413,27 @@ Calculate<-function(Closed,D,FishToTC,FishEfficiency,hr,by.month) { #Closed (mat
   
   New_TCatch_byspecies <- NewCatch_byspecies %>% summarise(across(TNames,sum))
   
-  TEffort<-sum(NewEffort)
+  TEffort <- sum(NewEffort)
   
-  return(list(Tcatch=Tcatch,ByCatch=ByCatch,TEffort=TEffort,
-              NewCatch=NewCatch,New_TCatch_byspecies=New_TCatch_byspecies,
-              NewEffort=NewEffort,TotalBcByArea=TotalBcByArea))
+  return(list(Tcatch=Tcatch, ByCatch=ByCatch, TEffort=TEffort,
+              NewCatch=NewCatch, New_TCatch_byspecies=New_TCatch_byspecies,
+              NewEffort=NewEffort, TotalBcByArea=TotalBcByArea))
 }
-
+# Calculate(Closed=Closed,D,FishToTC=TRUE,FishEfficiency=FALSE, hr=0.1, by.month=FALSE)
 ################################################
 # Do calculations and plots
-# ClosedSeq=seq(0,.5,.1) (sequence of proportions of areas to closed) can changed and 
-# Months_closed=seq(1,5,1) (sequence of number of months to close) can also be changed
-# If maps are desired Maps=TRUE
-# tmp.lines=TRUE, add grey lines for each year closed for bycatch species in case of months=F
-DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_closed=seq(1,5,1),
-                  minimize.by="prop",mosaic=FALSE,by.month=FALSE,Maps=TRUE,tmp.lines=TRUE){  # do the simulation
-  Corr <- cor(D[,-c(1:4,ncol(D)-1,ncol(D))])
-  if (by.month==FALSE){
+# ClosedSeq = seq(0,.5,.1) (sequence of proportions of areas to close) can change
+# Months_closed = seq(1,5,1) (sequence of number of months to close) can also be changed
+# If maps are desired Maps = TRUE
+# tmp.lines = TRUE, add gray lines for each year closed for by-catch species in case of months=F
+DoCalcs <- function(D, FishToTC, FishEfficiency, hr, weights=TRUE, ClosedSeq=seq(0,.5,.1), Months_closed=seq(1,5,1),
+                  minimize.by="prop", mosaic=FALSE, by.month=FALSE, Maps=TRUE, tmp.lines=TRUE){  
+  Corr <- cor(D[,-c(1:4)])
+  if (by.month == FALSE){
     Closed_months<-NULL
-    D<-aggregate(x=D[,5:ncol(D)],by=list(Lat=D$Lat,Lon=D$Lon,Year=D$Year),FUN=sum)
+    D <- aggregate(x=D[,5:ncol(D)],by=list(Lat=D$Lat,Lon=D$Lon,Year=D$Year),FUN=sum)
     
-    BC<-list() # to store total bycatch by species, area closure and by year
+    BC<-list() # to store total by-catch by species, area closure and by year
     TC<-list() # to store total target by species, area closure and by year
     CPUESave<-list() # to store target cpue by closure and year
     TEffort<-list() 
@@ -435,54 +443,62 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
     Nyears<-length(unique(D$Year))
     
     for(y in 1:c(Nyears+1)){ # +1: in the last element of the list we will store all years combined
-      if(y==Nyears+1){
-        D2<- aggregate(x=D[,4:ncol(D)],by=list(Lat=D$Lat,Lon=D$Lon),FUN=sum)
+      if(y == Nyears+1){
+        D2 <- aggregate(x=D[,4:ncol(D)],by=list(Lat=D$Lat,Lon=D$Lon),FUN=sum)
       } else {
-        D2<-D[D$Year==unique(D$Year)[y],] 
+        D2 <- D[D$Year == unique(D$Year)[y],] 
       }
-      N<-nrow(D2) #number of areas
+      N <- nrow(D2) #number of areas
       
-      BC[[y]]<-matrix(NA,nrow = length(ClosedSeq),ncol=length(col.BC))
-      TC[[y]]<-matrix(NA,nrow = length(ClosedSeq),ncol=length(col.T))
-      CPUESave[[y]]<- matrix(NA,ncol=length(ClosedSeq),nrow = 1)# for target species 
-      TEffort[[y]]<- matrix(NA,ncol=length(ClosedSeq),nrow = 1) #for effort 
-      CatchSave[[y]]<- matrix(NA,ncol=length(ClosedSeq),nrow = 1)
-      ResArea[[y]]<-data.frame(Lat=NA,Lon=NA,NewEffort=NA,CPUE_Target=NA,
-                               CPUE_ByCatch= NA,Closure=NA)
+      BC[[y]] <- matrix(NA, nrow = length(ClosedSeq), ncol=length(col.BC))
+      TC[[y]] <- matrix(NA, nrow = length(ClosedSeq), ncol=length(col.T))
+      CPUESave[[y]] <- matrix(NA, ncol=length(ClosedSeq), nrow = 1) # for target species 
+      TEffort[[y]] <- matrix(NA, ncol=length(ClosedSeq), nrow = 1) # for effort 
+      CatchSave[[y]] <- matrix(NA, ncol=length(ClosedSeq), nrow = 1)
+      ResArea[[y]] <- data.frame(Lat=NA, Lon=NA, NewEffort=NA, CPUE_Target=NA,
+                               CPUE_ByCatch= NA, Closure=NA)
       # 
-      for (i in 1:length(ClosedSeq) )   { #looping over the proportion of areas closed
-        pClose<-ClosedSeq[i] # prop closed
-        NClose<-round(pClose*N,0) # numbers of areas closed
+      for (i in 1:length(ClosedSeq) )   { # looping over the proportion of areas closed
+        pClose <- ClosedSeq[i] # prop closed
+        NClose <- round(pClose*N,0) # numbers of areas closed
         
-        Closed<-FindClose(NClose,D=D2,minimize.by=minimize.by,mosaic = mosaic,by.month=FALSE)
+        Closed <- FindClose(NClose, D=D2, weights = weights, minimize.by=minimize.by, mosaic = mosaic,by.month=FALSE)
         
-        Res<-Calculate(Closed,D=D2,FishToTC,FishEfficiency,hr,by.month=FALSE)
-        Res_a<-data.frame(Lat=D2$Lat,Lon=D2$Lon,NewEffort=Res$NewEffort,
+        Res <- Calculate(Closed, D=D2, FishToTC, FishEfficiency, hr, by.month=FALSE)
+        Res_a <- data.frame(Lat=D2$Lat, Lon=D2$Lon, NewEffort=Res$NewEffort,
                           CPUE_Target=Res$NewCatch/(Res$NewEffort*1E3),
                           CPUE_ByCatch= Res$TotalBcByArea/(Res$NewEffort),
                           Closure=ClosedSeq[i])
-        BC[[y]][i,]<-as.matrix(Res$ByCatch) 
-        TC[[y]][i,]<-as.matrix(Res$New_TCatch_byspecies)
-        CPUESave[[y]][i]<-Res$Tcatch/Res$TEffort
-        TEffort[[y]][i]<-Res$TEffort
-        CatchSave[[y]][i]<-Res$Tcatch
-        ResArea[[y]]<-rbind(ResArea[[y]],Res_a)
+        BC[[y]][i,] <- as.matrix(Res$ByCatch) 
+        TC[[y]][i,] <- as.matrix(Res$New_TCatch_byspecies)
+        CPUESave[[y]][i] <- Res$Tcatch/Res$TEffort
+        TEffort[[y]][i] <- Res$TEffort
+        CatchSave[[y]][i] <- Res$Tcatch
+        ResArea[[y]] <- rbind(ResArea[[y]],Res_a)
       }
-      ResArea[[y]]<-ResArea[[y]][-1,]
+      ResArea[[y]] <- ResArea[[y]][-1,]
       
     }
-    BC_w<-list()
-    TC_w<-list()
-    for(i in 1:c(Nyears+1)){
-      BC_w[[i]]<-sweep(BC[[i]], MARGIN=2, as.numeric(rel_wb), `*`) # weighted byCatch
-      TC_w[[i]]<-sweep(TC[[i]], MARGIN=2, as.numeric(rel_wt), `*`) # weighted Target Catch
+    
+    if (weights == TRUE){
+      BC_w <- list()
+      TC_w <- list()
+      
+      for(i in 1:c(Nyears+1)){
+        BC_w[[i]] <- sweep(BC[[i]], MARGIN=2, as.numeric(rel_wb), `*`) # weighted by-Catch
+        TC_w[[i]] <- sweep(TC[[i]], MARGIN=2, as.numeric(rel_wt), `*`) # weighted Target Catch
+      }
+      
+    } else {
+      BC_w <- BC
+      TC_w <- TC
     }
     
-    TBC<-apply(BC_w[[Nyears+1]],1,FUN=sum)
-    BCScaled<-TBC/TBC[1] #relative to the first value (no closure)
-    CPUEScaled<-CPUESave[[Nyears+1]]/CPUESave[[Nyears+1]][1]
-    TEffortScaled<-TEffort[[Nyears+1]]/TEffort[[Nyears+1]][1]
-    CatchScaled<-CatchSave[[Nyears+1]]/CatchSave[[Nyears+1]][1]
+    TBC <- apply(BC_w[[Nyears+1]],1,FUN=sum)
+    BCScaled <- TBC/TBC[1] # relative to the first value (no closure)
+    CPUEScaled <- CPUESave[[Nyears+1]]/CPUESave[[Nyears+1]][1]
+    TEffortScaled <- TEffort[[Nyears+1]]/TEffort[[Nyears+1]][1]
+    CatchScaled <- CatchSave[[Nyears+1]]/CatchSave[[Nyears+1]][1]
     
     # what if we sum up when areas were closed by year: 
     
@@ -576,11 +592,18 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
       D2<-D2[D2$Month!=Closed[[2]],]
     }
     
-    BC_w<-list()
-    TC_w<-list()
-    for(i in 1:c(Nmonths+1)){
-      BC_w[[i]]<-sweep(BC[[i]], MARGIN=2, as.numeric(rel_wb), `*`) # weighted byCatch
-      TC_w[[i]]<-sweep(TC[[i]], MARGIN=2, as.numeric(rel_wt), `*`) # weighted Target Catch
+    if (weights == TRUE){
+      BC_w <- list()
+      TC_w <- list()
+      
+      for(i in 1:c(Nmonths+1)){
+        BC_w[[i]] <- sweep(BC[[i]], MARGIN=2, as.numeric(rel_wb), `*`) # weighted by-Catch
+        TC_w[[i]] <- sweep(TC[[i]], MARGIN=2, as.numeric(rel_wt), `*`) # weighted Target Catch
+      }
+      
+    } else {
+      BC_w <- BC
+      TC_w <- TC
     }
     
     TBC<-NULL
@@ -733,53 +756,100 @@ DoCalcs<-function(D,FishToTC,FishEfficiency,hr,ClosedSeq=seq(0,.5,.1),Months_clo
                       BCScaled=BCScaled,TEffortScaled=TEffortScaled,CatchScaled=CatchScaled,CPUEScaled=CPUEScaled,
                       BCScaled_y=BCScaled_y,TEffortScaled_y=TEffortScaled_y,CatchScaled_y=CatchScaled_y,CPUEScaled_y=CPUEScaled_y,
                       Changes_bySpecies=BC_tot, Corr=Corr),
-          file=file.path(results_dir,paste0(Fishery_name,"_Mosaic=",mosaic,"_FishToTC=",FishToTC,"_FishEfficiency=",FishEfficiency,"_minimize.by=",minimize.by,
+          file=file.path(results_dir,paste0(Fishery_name,"_Weights=",weights,"_Mosaic=",mosaic,"_FishToTC=",FishToTC,"_FishEfficiency=",FishEfficiency,"_minimize.by=",minimize.by,
                       "_by.month=",by.month,".rds")))
 } # end of function
-############################################################################################################
-# the following set of lines of codes run all posible combinations ##############
-#################################################################################
+##################################################################################################################
+# the following set of lines run all possible scenarios, and with and without weights for sensitivity analysis
+##################################################################################################################
+# with weights identified by the "W"
+pdf(file=file.path(results_dir,paste0("Outs_prop_W_",Fishery_name,".pdf")))
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="prop",Maps=FALSE,by.month=TRUE,Months_closed=seq(1,5,1))
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="prop",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="prop",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="prop",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="prop",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="prop",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="prop",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="prop",Maps=TRUE,by.month=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="prop",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="prop",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="prop",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="prop",mosaic=TRUE,Maps=TRUE)
+dev.off()
+###############################################################################
+pdf(file=file.path(results_dir,paste0("Outs_N_W_",Fishery_name,".pdf")))
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="N",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="N",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="N",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="N",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="N",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="N",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="N",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="N",Maps=TRUE,by.month=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="N",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="N",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="N",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="N",mosaic=TRUE,Maps=TRUE)
+dev.off()
+###############################################################################
+pdf(file=file.path(results_dir,paste0("Outs_BCrate_W_",Fishery_name,".pdf")))
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="rate",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="rate",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="rate",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="rate",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="rate",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="rate",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="rate",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="rate",Maps=TRUE,by.month=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="rate",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="rate",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=TRUE,hr,minimize.by="rate",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=TRUE,hr,minimize.by="rate",mosaic=TRUE,Maps=TRUE)
+dev.off()
+
+# Un-weighted
 pdf(file=file.path(results_dir,paste0("Outs_prop_",Fishery_name,".pdf")))
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,hr,minimize.by="prop",Maps=FALSE,by.month=TRUE,Months_closed=seq(1,5,1))
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,hr,minimize.by="prop",Maps=FALSE,by.month=FALSE)
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,hr,minimize.by="prop",Maps=FALSE,by.month=TRUE)
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,hr,minimize.by="prop",Maps=FALSE,by.month=FALSE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,hr,minimize.by="prop",Maps=FALSE,by.month=TRUE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,hr,minimize.by="prop",Maps=FALSE,by.month=FALSE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,hr,minimize.by="prop",Maps=FALSE,by.month=TRUE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,hr,minimize.by="prop",Maps=TRUE,by.month=FALSE)
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,hr,minimize.by="prop",mosaic=TRUE,Maps=FALSE)
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,hr,minimize.by="prop",mosaic=TRUE,Maps=FALSE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,hr,minimize.by="prop",mosaic=TRUE,Maps=FALSE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,hr,minimize.by="prop",mosaic=TRUE,Maps=TRUE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="prop",Maps=FALSE,by.month=TRUE,Months_closed=seq(1,5,1))
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="prop",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="prop",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="prop",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="prop",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="prop",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="prop",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="prop",Maps=TRUE,by.month=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="prop",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="prop",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="prop",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="prop",mosaic=TRUE,Maps=TRUE)
 dev.off()
 ###############################################################################
 pdf(file=file.path(results_dir,paste0("Outs_N_",Fishery_name,".pdf")))
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,hr,minimize.by="N",Maps=FALSE,by.month=TRUE)
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,hr,minimize.by="N",Maps=FALSE,by.month=FALSE)
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,hr,minimize.by="N",Maps=FALSE,by.month=TRUE)
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,hr,minimize.by="N",Maps=FALSE,by.month=FALSE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,hr,minimize.by="N",Maps=FALSE,by.month=TRUE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,hr,minimize.by="N",Maps=FALSE,by.month=FALSE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,hr,minimize.by="N",Maps=FALSE,by.month=TRUE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,hr,minimize.by="N",Maps=TRUE,by.month=FALSE)
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,hr,minimize.by="N",mosaic=TRUE,Maps=FALSE)
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,hr,minimize.by="N",mosaic=TRUE,Maps=FALSE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,hr,minimize.by="N",mosaic=TRUE,Maps=FALSE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,hr,minimize.by="N",mosaic=TRUE,Maps=TRUE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="N",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="N",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="N",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="N",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="N",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="N",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="N",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="N",Maps=TRUE,by.month=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="N",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="N",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="N",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="N",mosaic=TRUE,Maps=TRUE)
 dev.off()
 ###############################################################################
 pdf(file=file.path(results_dir,paste0("Outs_BCrate_",Fishery_name,".pdf")))
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,hr,minimize.by="rate",Maps=FALSE,by.month=TRUE)
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,hr,minimize.by="rate",Maps=FALSE,by.month=FALSE)
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,hr,minimize.by="rate",Maps=FALSE,by.month=TRUE)
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,hr,minimize.by="rate",Maps=FALSE,by.month=FALSE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,hr,minimize.by="rate",Maps=FALSE,by.month=TRUE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,hr,minimize.by="rate",Maps=FALSE,by.month=FALSE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,hr,minimize.by="rate",Maps=FALSE,by.month=TRUE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,hr,minimize.by="rate",Maps=TRUE,by.month=FALSE)
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,hr,minimize.by="rate",mosaic=TRUE,Maps=FALSE)
-DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,hr,minimize.by="rate",mosaic=TRUE,Maps=FALSE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,hr,minimize.by="rate",mosaic=TRUE,Maps=FALSE)
-DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,hr,minimize.by="rate",mosaic=TRUE,Maps=TRUE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="rate",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="rate",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="rate",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="rate",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="rate",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="rate",Maps=FALSE,by.month=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="rate",Maps=FALSE,by.month=TRUE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="rate",Maps=TRUE,by.month=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="rate",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=TRUE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="rate",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=FALSE,weights=FALSE,hr,minimize.by="rate",mosaic=TRUE,Maps=FALSE)
+DoCalcs(D,FishToTC=FALSE,FishEfficiency=TRUE,weights=FALSE,hr,minimize.by="rate",mosaic=TRUE,Maps=TRUE)
 dev.off()
