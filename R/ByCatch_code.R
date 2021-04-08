@@ -578,7 +578,7 @@ DoCalcs <- function(D, FishToTC, FishEfficiency, hr, weights=TRUE, ClosedSeq=seq
     
     for (i in 2:c(Nmonths+1)) { #looping over months
       
-      Closed<-FindClose(NClose,D=D2,minimize.by=minimize.by,mosaic = mosaic,by.month=TRUE) #NClose does not matter for months
+      Closed<-FindClose(NClose,D=D2,minimize.by=minimize.by, weights=weights,mosaic = mosaic,by.month=TRUE) #NClose does not matter for months
       Closed_months<-c(Closed_months,Closed[[2]])
       Res<-Calculate(Closed,D=D2,FishToTC,FishEfficiency,hr,by.month=TRUE)
       
