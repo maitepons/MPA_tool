@@ -1,4 +1,3 @@
-rm(list=ls())
 ####### Some libraries needed
 library(tidyverse)
 library(reshape2)
@@ -7,6 +6,7 @@ library(gridExtra)
 library(ggcorrplot)
 library(shiny)
 library(maps)
+library(shinycssloaders)
 
 ###############################################
 # this routine searches over spatial locations of closed areas 
@@ -14,87 +14,93 @@ library(maps)
 # 1) "N": bycatch in numbers; 2) "rate": bycatch CPUE; 3) "prop": ByCatch/target   
 # it will not be a square, but the areas closest to a centroid
 FindClose<-function(NClose,D,Tweights,BCweights,minimize.by="prop",mosaic=F,by.month=FALSE){
-  NT<-length(Tweights) # number of target species 
-  NBC<-length(BCweights) # number of byCatch species
-  
-  col.BC<-seq(from=ncol(D)- NBC-3,to=ncol(D)-4) # columns for by-catch species 
-  col.T<-seq(from=5,to=5+NT-1)
-  BCNames<-names(D[col.BC])
-  TNames<-names(D[col.T])
+  # NT<-length(Tweights) # number of target species 
+  # NBC<-length(BCweights) # number of byCatch species
+  # 
+  # col.BC<-seq(from=ncol(D2)- NBC-3,to=ncol(D2)-4) # columns for by-catch species 
+  # col.T<-seq(from=ncol(D2)- NBC-4-NT,to=1+
+  # BCNames<-names(D[col.BC])
+  # TNames<-names(D[col.T])
+  #BCNames<-colnames(BCweights)
+  Bycatch <- D$TBC.w
+  Target <- D$Target.w
   
   if (by.month==FALSE){
     
-    col.BC<-seq(from=ncol(D)- NBC -1 ,to=ncol(D)-4)
+    #col.BC<-seq(from=ncol(D)- NBC -1 ,to=ncol(D)-4)
     
     Narea<-nrow(D) # Number of areas: this is just the number of rows in the data frame
     
-    Bycatch<-D %>% dplyr::select(all_of(BCNames)) # weighted numbers
+    #Bycatch<-D2 %>% dplyr::select(all_of(BCNames)) # weighted numbers
     #now loop over over centroids
-    BestByCatch=0 #the target bycatch to beat
+    BestByCatch = 0 # the target by-catch to beat
     if (NClose>0) {
       if(mosaic==F){
         for (a in 1:Narea){
-          lat<-D$Lat[a]
-          lon<-D$Lon[a]
+          lat <- D$Lat[a]
+          lon <- D$Lon[a]
           TempClosed<-array(dim=Narea,FALSE)
           if (mosaic==F){
-            d<-sqrt((D$Lat-lat)^2+(D$Lon-lon)^2) 
-            ord<-order(d)
-            TempClosed[ord[1:NClose]]<-TRUE }# closed areas for each cell centroid
+            d <- sqrt((D$Lat-lat)^2+(D$Lon-lon)^2) 
+            ord <- order(d)
+            TempClosed[ord[1:NClose]] <- TRUE } # closed areas for each cell centroid
           
           i<-which(TempClosed==TRUE)
           
           if(minimize.by=="prop"){
+            Tbycatch <- sum(Bycatch[i])/sum(Target[i]) # proportion
             
-            Tbycatch<-sum(Bycatch[i,])/sum(D$Target.w[i]) #proportion
           } else if (minimize.by=="N"){
-            Tbycatch<-sum(Bycatch[i,])
+            Tbycatch <- sum(Bycatch[i])  # Numbers
+            
           } else {
-            Tbycatch<-sum(Bycatch[i,])/sum(D$Effort[i]) #CPUE
+            Tbycatch <- sum(Bycatch[i])/sum(D$Effort[i]) # CPUE
           }
-          if (Tbycatch>BestByCatch){ # it only replaces the Tbycatch if it is higher than the BestByCatch calculated for the previous area [a]
-            BestByCatch<-Tbycatch;Closed<-TempClosed;BestLat<-lat;BestLon<-lon}
           
-        } #end areas
+          if (Tbycatch > BestByCatch){ # it only replaces the Tbycatch if it is higher than the BestByCatch calculated for the previous area [a]
+            BestByCatch <- Tbycatch; Closed <- TempClosed; BestLat <- lat; BestLon <- lon}
+          
+        } # end areas
         
       } else {
         # closed area mosaic
-        TempClosed<-array(dim=Narea,FALSE)
-        if(minimize.by=="prop"){
-          j<-order(D$TBC.w/D$Target.w,decreasing = TRUE)[1:NClose] # #proportion
-        } else if (minimize.by=="N"){
-          j<-order(D$TBC.w,decreasing = TRUE)[1:NClose] # numbers
+        TempClosed <- array(dim=Narea,FALSE)
+        if(minimize.by == "prop"){
+          j <- order(Bycatch/Target, decreasing = TRUE)[1:NClose] # proportion
+        } else if (minimize.by == "N"){
+          j <- order(Bycatch, decreasing = TRUE)[1:NClose] # numbers
         } else {
-          j<-order(D$TBC.w/D$Effort,decreasing = TRUE)[1:NClose] #CPUE
+          j <- order(Bycatch/D$Effort,decreasing = TRUE)[1:NClose] # CPUE
         }
         # closed area mosaic
-        TempClosed[j]<-TRUE
-        Closed<-TempClosed
+        TempClosed[j] <- TRUE
+        Closed <- TempClosed
       }
     }
     else{
-      Closed<-NA
-      for (a in 1:Narea){Closed[a]=FALSE}
+      Closed <- NA
+      for (a in 1:Narea){Closed[a] = FALSE}
     }
-    M<-NULL
+    M <- NULL
   }
   if (by.month == TRUE){
     
-    TempClosed<-array(dim=nrow(D),FALSE)
+    TempClosed <- array(dim=nrow(D), FALSE)
     
-    if(minimize.by=="N"){
-      Table.month<-aggregate(x=D$TBC.w,by=list(Month=D$Month),FUN=sum) # bycatch in numbers
-    } else if (minimize.by=="prop"){
-      Table.month<-aggregate(x=D$TBC.w/D$Target.w,by=list(Month=D$Month),FUN=sum)  # bycatch in numbers
+    if(minimize.by == "N"){
+      Table.month <- aggregate(x=Bycatch, by=list(Month=D$Month), FUN=sum) # by-catch in numbers
+    } else if (minimize.by == "prop"){
+      Table.month <- aggregate(x=Bycatch/Target, by=list(Month=D$Month), FUN=sum)  # prop
     } else {
-      Table.month<-aggregate(x=D$TBC.w/D$Effort,by=list(Month=D$Month),FUN=sum) 
+      Table.month <- aggregate(x=Bycatch/D$Effort, by=list(Month=D$Month), FUN=sum) # CPUE
     }
-    M<-Table.month$Month[which(Table.month$x==max(Table.month$x))]
+    M <- Table.month$Month[which(Table.month$x==max(Table.month$x))]
     
-    M<-M[1]  # sometimes it doesn't work if there is the same number of bycatch in different months when minimized.by="N"
-    i<-which(D$Month==M)
-    TempClosed[i]<-TRUE
-    Closed<-TempClosed
+    M <- M[1]  # sometimes it doesn't work if there is the same number of by-catch in different months when minimized.by = "N"
+    i <- which(D$Month == M)
+    TempClosed[i] <- TRUE
+    Closed <- TempClosed
+    
   }
   return(list(Closed,M)) # matrix of TRUES and FALSES
 }
@@ -103,11 +109,8 @@ Calculate<-function(Closed,D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=G
   NT<-length(Tweights) # number of target species 
   NBC<-length(BCweights) # number of byCatch species
   
-  Bcols<-seq(from=ncol(D)- NBC-3,to=ncol(D)-4) # columns for by-catch species 
-  Tcols<-seq(from=5,to=5+NT-1)
-  
-  BCNames<-names(D[Bcols])
-  TNames<-names(D[Tcols])
+  BCNames<-names(BCweights)
+  TNames<-names(Tweights)
   
   CPUE<-D$Target/D$Effort # CPUE target species
   #T_CPUE<-D[,Tcols]/D$Effort
@@ -122,7 +125,7 @@ Calculate<-function(Closed,D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=G
   TotalE<-sum(D$Effort)
   Narea<-length(Closed[[1]]) # Total number of areas (grids)
   q<-Narea*(-log(1-hr)/TotalE)  #this is the q for the target species 
-  InitialCatch<-D$Target 
+  InitialCatch<-D$Target
   InitialB<-InitialCatch/(1-exp(-q*D$Effort))  #the initial biomass in each cell for the target species  
   
   
@@ -218,16 +221,16 @@ Calculate<-function(Closed,D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=G
               NewEffort=NewEffort,TotalBcByArea=TotalBcByArea))
 }
 ################################################
-DoCalcs<-function(D,Tweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffort,BCweights,FishToTC,FishEfficiency,hr=0.1,ClosedSeq=seq(0,.5,.1),Months_closed=seq(1,5,1),
-                  minimize.by="prop",mosaic=FALSE,by.month=FALSE,Maps=TRUE,tmp.lines=TRUE){  # do the simulation
+DoCalcs<-function(D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffort,FishToTC,FishEfficiency,hr=0.1,ClosedSeq=seq(0,.5,.1),Months_closed=seq(1,5,1),
+                  minimize.by="prop",mosaic=FALSE,by.month=FALSE,Maps=TRUE,rel_wb, rel_wt){  # do the simulation
   NT<-length(Tweights) # number of target species 
   NBC<-length(BCweights) # number of byCatch species
   
-  col.BC<-seq(from=ncol(D)- NBC-3,to=ncol(D)-4) # columns for by-catch species 
-  col.T<-seq(from=5+1,to=5+NT)
+  # col.BC<-seq(from=ncol(D)- NBC-3,to=ncol(D)-4) # columns for by-catch species 
+  # col.T<-seq(from=5+1,to=5+NT)
   
-  BCNames<-names(D[col.BC])
-  TNames<-names(D[col.T])
+  BCNames<-names(BCweights)
+  TNames<-names(Tweights)
   
   if (by.month==FALSE){
     Closed_months<-NULL
@@ -250,13 +253,13 @@ DoCalcs<-function(D,Tweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffort,BCweigh
       }
       N<-nrow(D2) #number of areas
       
-      BC[[y]]<-matrix(NA,nrow = length(ClosedSeq),ncol=length(col.BC))
-      TC[[y]]<-matrix(NA,nrow = length(ClosedSeq),ncol=length(col.T))
+      BC[[y]]<-matrix(NA,nrow = length(ClosedSeq),ncol=length(BCweights))
+      TC[[y]]<-matrix(NA,nrow = length(ClosedSeq),ncol=length(Tweights))
       CPUESave[[y]]<- matrix(NA,ncol=length(ClosedSeq),nrow = 1)# for target species 
       TEffort[[y]]<- matrix(NA,ncol=length(ClosedSeq),nrow = 1) #for effort 
       CatchSave[[y]]<- matrix(NA,ncol=length(ClosedSeq),nrow = 1)
-      ResArea[[y]]<-data.frame(Lat=NA,Lon=NA,NewEffort=NA,CPUE_Target=NA,
-                               CPUE_ByCatch= NA,Closure=NA)
+      ResArea[[y]]<-data.frame(Lat=NA,Lon=NA,NewEffort=NA,ByCatch=NA,CPUE_Target=NA,
+                               CPUE_ByCatch= NA,Proportion = NA, Closure=NA)
       # 
       for (i in 1:length(ClosedSeq) )   { #looping over the proportion of areas closed
         pClose<-ClosedSeq[i] # prop closed
@@ -266,9 +269,11 @@ DoCalcs<-function(D,Tweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffort,BCweigh
         
         Res<-Calculate(Closed,D=D2,FishToTC=FishToTC,FishEfficiency=FishEfficiency,hr=hr,by.month=FALSE,
                        Tweights=Tweights,BCweights=BCweights)
-        Res_a<-data.frame(Lat=D2$Lat,Lon=D2$Lon,NewEffort=Res$NewEffort,
-                          CPUE_Target=Res$NewCatch/(Res$NewEffort*1E3),
-                          CPUE_ByCatch= Res$TotalBcByArea/(Res$NewEffort),
+        Res_a<-data.frame(Lat = D2$Lat,Lon = D2$Lon, NewEffort = Res$NewEffort,
+                          ByCatch = (Res$TotalBcByArea/(Res$NewEffort))*(Res$NewEffort),
+                          CPUE_Target=Res$NewCatch/(Res$NewEffort),
+                          CPUE_ByCatch = Res$TotalBcByArea/(Res$NewEffort),
+                          Proportion = Res$TotalBcByArea/Res$NewCatch,
                           Closure=ClosedSeq[i])
         BC[[y]][i,]<-as.matrix(Res$ByCatch) # weighted bycatch
         TC[[y]][i,]<-as.matrix(Res$New_TCatch_byspecies)
@@ -280,6 +285,13 @@ DoCalcs<-function(D,Tweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffort,BCweigh
       ResArea[[y]]<-ResArea[[y]][-1,]
       
     }
+    
+    # if I want to plot the weighted bycatch I have to multiply again for the tmp.weights becasue in "Calculate" we use raw numbers
+    for(i in 1:c(Nyears+1)){
+      BC[[i]] <- sweep(BC[[i]], MARGIN=2, as.numeric(rel_wb), `*`) # weighted by-Catch
+      TC[[i]] <- sweep(TC[[i]], MARGIN=2, as.numeric(rel_wt), `*`) # weighted Target Catch
+    }
+    
     TBC<-apply(BC[[Nyears+1]],1,FUN=sum)
     BCScaled<-TBC/TBC[1] #relative to the first value (no closure)
     CPUEScaled<-CPUESave[[Nyears+1]]/CPUESave[[Nyears+1]][1]
@@ -385,6 +397,11 @@ DoCalcs<-function(D,Tweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffort,BCweigh
       D2<-D2[D2$Month!=Closed[[2]],]
     }
     
+    for(i in 1:c(Nmonths+1)){
+      BC[[i]] <- sweep(BC[[i]], MARGIN=2, as.numeric(rel_wb), `*`) # weighted by-Catch
+      TC[[i]] <- sweep(TC[[i]], MARGIN=2, as.numeric(rel_wt), `*`) # weighted Target Catch
+    }
+    
     TBC<-NULL
     CPUEScaled<-NULL
     TEffortScaled<-NULL
@@ -433,10 +450,7 @@ DoCalcs<-function(D,Tweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffort,BCweigh
     BCScaled_y=NULL;TEffortScaled_y=NULL;CatchScaled_y=NULL;CPUEScaled_y=NULL
   }
   
-  return(list(OutID=paste0("_Mosaic=",mosaic,"_FishToTC=",FishToTC,
-                           "_FishEfficiency=",FishEfficiency,"_minimize.by=",minimize.by,
-                           "_by.month=",by.month),
-              Nyears=Nyears,ClosedSeq = ClosedSeq, Closed_months=Closed_months,Months_closed=Months_closed,
+  return(list(Nyears=Nyears,ClosedSeq = ClosedSeq, Closed_months=Closed_months,Months_closed=Months_closed,
               BC=BC,CPUE_t=CPUESave,TEffort=TEffort,Catch=CatchSave, TBC_tmp=TBC_tmp,ResArea = ResArea,
               BCScaled=BCScaled,TEffortScaled=TEffortScaled,CatchScaled=CatchScaled,CPUEScaled=CPUEScaled,BC_tot=BC_tot,
               BCScaled_y=BCScaled_y,TEffortScaled_y=TEffortScaled_y,CatchScaled_y=CatchScaled_y,CPUEScaled_y=CPUEScaled_y))
@@ -444,13 +458,14 @@ DoCalcs<-function(D,Tweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffort,BCweigh
 ############################################
 # Define IU for the shiny application
 ui <- fluidPage(
-  h1("MPA_tool (under development)"),
+  h1("Spatial-temporal closures as a tool to reduce bycatch interactions (under development)"),
   h4("Instructions"),
   h5("You'll need 2 csv files to run this application. 
-        One is called 'Data.csv' and the other one is called 'Weights.csv'"),
+        One should be called 'Data.csv' and the other one 'Weights.csv'"),
   h5("After uploading the csv files, wait until the plots are generated. This could take a few 
-     seconds based on how fast is your computer. If you decide to send the model outputs to
-     mpons@uw.edu, please do not change the default name when downloading the RDS file. Thanks!"),
+     seconds or minutes based on how fast is your computer and how much data you are uploading. If you decide to send the model outputs to
+     mpons@uw.edu, please do not change the default name when downloading the RDS file. 
+     You can also send to the same email address any questions and suggestions to improve the app. Thanks!"),
   
   
   sidebarLayout(
@@ -489,16 +504,11 @@ ui <- fluidPage(
                    choices = c(Comma = ",",
                                Semicolon = ";"),
                    selected = ","),
-      br(),
-      h6("Specify the shape of the area to close: centered around one point (Centroid) or Mosaic (any quadrant can be closed even if they are not connected).
-         The area selected will be based on the options below in the next checkbox"),
-      radioButtons(inputId="Mosaic", label="Area shape:", 
-                   choices=c("Centroid","Mosaic")),
       
       br(),
       h6("The areas will be closed by minimizing the following:"),
       radioButtons(inputId = "minimize.by", label="Minimize by:",
-                   choices=c("ByCatch/Target", "ByCatch rate" ,"ByCatch numbers")),
+                   choices=c("ByCatch/Target", "ByCatch rate" ,"Absolute bycatch")),
       
       br(),
       h6("Fishing to Total Catch means that the effort outside the closed areas will increase in order to get the same Total Catch as it was before the closure.
@@ -515,32 +525,33 @@ ui <- fluidPage(
          we assume that as fishing pressure increases in open areas, due to displaced effort, 
          the CPUE of the target species will change due to a decline in biomass"),
       radioButtons(inputId = "FishEfficiency" , label = "Fishing efficiency", 
-                   choices=c("Does not change", "Changes")),
-      br(),
-      h6("This is for monthly closures; not area closures. Map_closed_areas is not generated when Monthly closures is selected"),
-      radioButtons(inputId = "by.month", label="Monthly closures", 
-                   choices=c("No","Yes")),
-      sliderInput("obs", "Number of months to close:",
-                  min = 0, max = 12, value = 5)
+                   choices=c("Does not change", "Changes")) 
     ),
     
     mainPanel(
       
       tabsetPanel(type = "tabs",
-                  
-                  tabPanel("Lines.plot", plotOutput("plot2"),
-                           downloadButton(outputId='downloadLPlot',label='download.LPlot'),
+
+                  tabPanel("Main Results", actionButton("plot2", "Run", icon("running")) %>% withSpinner(color="#0dc5c1"),
+                           plotOutput("plot2"),
+                            downloadButton(outputId='downloadLPlot',label='download.LPlot'),
                            downloadButton("SaveRDS", "Save Output as a RDS file")),
-                  tabPanel("Barplot", plotOutput("plot3"),
-                           downloadButton(outputId='downloadBPlot',label='download.BPlot')),
-                  tabPanel("Map_closed_areas", plotOutput("plot4"),
+                  tabPanel("Barplot_Centroid", plotOutput("plot3"),
+                            downloadButton(outputId='downloadBPlotC',label='download.BPlot.C')),
+                  tabPanel("Barplot_Mosaic", plotOutput("plot8"),
+                           downloadButton(outputId='downloadBPlotM',label='download.BPlot.M')),
+                  tabPanel("Barplot_Temporal", plotOutput("plot9"),
+                           downloadButton(outputId='downloadBPlotT',label='download.BPlot.T')),
+                  tabPanel("Static centroid closures", plotOutput("plot4"),
                            downloadButton(outputId='downloadCMap',label='download.CMap')),
-                  tabPanel("Map_raw_data", plotOutput("plot1"),
-                           downloadButton(outputId='downloadMap',label='download.Map')),
-                  tabPanel("Correlation_plot", plotOutput("plot5"),
+                  tabPanel("Static mosaic closures", plotOutput("plot7"),
+                           downloadButton(outputId='downloadMMap',label='download.MMap')),
+                  tabPanel("Correlation", plotOutput("plot5"),
                            downloadButton(outputId='downloadCorPlot',label='download.CorPlot')),
-                  tabPanel("Weights_plot", plotOutput("plot6"),
-                           downloadButton(outputId='downloadWPlot',label='download.WPlot'))
+                  tabPanel("Weights", plotOutput("plot6"),
+                           downloadButton(outputId='downloadWPlot',label='download.WPlot')),
+                  tabPanel("Map raw_data", plotOutput("plot1"),
+                           downloadButton(outputId='downloadMap',label='download.Map'))
                   
       ),
       
@@ -601,8 +612,8 @@ server <- function(input, output, session) {
     D_w<-D # keep D unweighted
     
     for (i in 1:nrow(D_w)){
-      D_w[i,col.BC]<- D_w[i,col.BC]*rel_wb #asign bycatch weights
-      D_w[i,col.T]<- D_w[i,col.T]*rel_wt   #asign target weights
+      D_w[i,col.BC]<- D_w[i,col.BC]*rel_wb #assign bycatch weights
+      D_w[i,col.T]<- D_w[i,col.T]*rel_wt   #assign target weights
     } 
     
     D_w <- D_w %>% 
@@ -625,8 +636,6 @@ server <- function(input, output, session) {
     Tmp<-melt(D_sum,id.vars = c("Lat","Lon"))
     # for mapping
     world <- ggplot2::map_data('world')
-    #world <- broom(world)
-    #world <- map_data("world")
    
     i=which(world$long<0)
     world$long[i]<- world$long[i]+ 360 #  rescale to 360 degrees to have all positive values for longitude
@@ -647,20 +656,23 @@ server <- function(input, output, session) {
     GlobalEffort<-sum(D$Effort)
     
     return(list(Tmp=Tmp,D=D,D_w=D_w,col.BC=col.BC,col.T=col.T,NBC=NBC,NT=NT,BCNames=BCNames,TNames=TNames,
-                Tweights=Tweights,BCweights=BCweights,worldmap=worldmap,
+                Tweights=Tweights,BCweights=BCweights,worldmap=worldmap,rel_wb=rel_wb,rel_wt=rel_wt,
                 GlobalTC=GlobalTC,GlobalEffort=GlobalEffort))
     
   })
   myplot1<-function(){
+    
     dataframe()$Tmp %>% group_by(variable) %>%
       do(gg = {
         dataframe()$worldmap +
           geom_tile(., mapping=aes(Lon, Lat, fill = value)) +
           facet_grid(~variable) +
           scale_fill_gradient(low = "white", high = "red")+
-          theme(panel.background = element_rect(fill="skyblue", colour="skyblue"),
-                panel.grid.major = element_blank(),
-                panel.grid.minor = element_blank(),legend.position = "top")
+
+        theme(legend.title = element_blank(),legend.position = "top",
+              legend.text = element_text(size = 10),strip.text.y = element_blank(),
+              plot.margin = unit(c(0, 0, 0, 0), "lines"),
+              text = element_text(size=15))
       }) %>%
       .$gg %>% arrangeGrob(grobs = ., nrow = 3) %>% grid.arrange()
 
@@ -674,13 +686,10 @@ server <- function(input, output, session) {
       paste('Map_data', 'png',sep=".")
     },
     content = function(file) {
-      # open the device
-      #ggsave(file,device = "png", width=11, height=8.5)
       
       png(file,width = 1500, height = 1000)
       # create the plot
-      #plot_out1 <- isolate(output$plot1())
-      myplot1()
+        myplot1()
       # close the device
       dev.off()
     }
@@ -688,23 +697,17 @@ server <- function(input, output, session) {
   
   ### Run functions
   Out<-reactive({
-    if(input$Mosaic=="Centroid"){
-      Mosaic=FALSE
-    }
-    if(input$Mosaic=="Mosaic"){
-      Mosaic=TRUE
-    }
     
     if(input$minimize.by=="ByCatch/Target"){
       minimize.by="prop"
     }
-    if(input$minimize.by=="ByCatch numbers"){
+    if(input$minimize.by=="Absolute bycatch"){
       minimize.by="N"
     }
     if(input$minimize.by=="ByCatch rate"){
       minimize.by="rate"
     }
-    
+
     if(input$FishToTC=="Total Catch"){
       FishToTC=TRUE
     }
@@ -717,155 +720,253 @@ server <- function(input, output, session) {
     if(input$FishEfficiency=="Does not change"){
       FishEfficiency=FALSE
     }
+    OutID <- paste0("_minimize.by=",minimize.by, "_FishToTC=",FishToTC,
+                 "_FishEfficiency=",FishEfficiency)
     
-    if(input$by.month=="No"){
-      by.month=FALSE
-    }
-    if(input$by.month=="Yes"){
-      by.month=TRUE
-    }
-    Res<-DoCalcs(D=dataframe()$D,GlobalTC=dataframe()$GlobalTC,GlobalEffort=dataframe()$GlobalEffort,
+    Res1<-DoCalcs(D=dataframe()$D,GlobalTC=dataframe()$GlobalTC,GlobalEffort=dataframe()$GlobalEffort,
                  BCweights=dataframe()$BCweights,Tweights=dataframe()$Tweights,
-                 ClosedSeq=seq(0,.5,.1),Months_closed=seq(1,input$obs,1),
-                 mosaic = Mosaic,FishToTC=FishToTC,FishEfficiency=FishEfficiency,hr=0.1,
-                 minimize.by=minimize.by,Maps=FALSE,by.month=by.month,tmp.lines=TRUE) 
-    
-    return(Res)
+                 ClosedSeq=seq(0,.5,.1),Months_closed=seq(1,5,1),
+                 mosaic = FALSE, rel_wb=dataframe()$rel_wb, rel_wt=dataframe()$rel_wt, 
+                 FishToTC=FishToTC,FishEfficiency=FishEfficiency,hr=0.1,
+                 minimize.by=minimize.by,Maps=FALSE,by.month=FALSE)
+    Res2<-DoCalcs(D=dataframe()$D,GlobalTC=dataframe()$GlobalTC,GlobalEffort=dataframe()$GlobalEffort,
+                  BCweights=dataframe()$BCweights,Tweights=dataframe()$Tweights,
+                  ClosedSeq=seq(0,.5,.1),Months_closed=seq(1,5,1),
+                  mosaic = TRUE,rel_wb=dataframe()$rel_wb, rel_wt=dataframe()$rel_wt,
+                  FishToTC=FishToTC,FishEfficiency=FishEfficiency,hr=0.1,
+                  minimize.by=minimize.by,Maps=FALSE,by.month=FALSE)
+    Res3<-DoCalcs(D=dataframe()$D,GlobalTC=dataframe()$GlobalTC,GlobalEffort=dataframe()$GlobalEffort,
+                  BCweights=dataframe()$BCweights,Tweights=dataframe()$Tweights,
+                  ClosedSeq=seq(0,.5,.1),Months_closed=seq(1,5,1),
+                  mosaic = TRUE,rel_wb=dataframe()$rel_wb, rel_wt=dataframe()$rel_wt,
+                  FishToTC=FishToTC,FishEfficiency=FishEfficiency,hr=0.1,
+                  minimize.by=minimize.by,Maps=FALSE,by.month=TRUE)
+
+    return(list(Centroid=Res1, Mosaic=Res2, Temporal=Res3, OutID=OutID))
   })
-  #
+
+   Out_plot<-eventReactive(input$plot2, {
+    df <- NULL
+    df <- rbind(df, data.frame(Type.closure = rep("Stationary Centroid",6), #FishToTC= rep(FishToTC, 6),
+                               #FishEfficiency= rep(FishEfficiency, 6),
+                               Closure = Out()[[1]]$ClosedSeq, Effort = t(Out()[[1]]$TEffortScaled), ByCatch= Out()[[1]]$BCScaled,
+                               Catch= t(Out()[[1]]$CatchScaled)))
+    df<- rbind(df, data.frame(Type.closure = rep("Dynamic Centroid",6), #FishToTC= rep(FishToTC, 6),
+                              #FishEfficiency= rep(FishEfficiency, 6),
+                              Closure = Out()[[1]]$ClosedSeq, Effort = t(Out()[[1]]$TEffortScaled_y), ByCatch= Out()[[1]]$BCScaled_y,
+                              Catch= t(Out()[[1]]$CatchScaled_y)))
+    df <- rbind(df, data.frame(Type.closure = rep("Stationary Mosaic",6), #FishToTC= rep(FishToTC, 6),
+                               #FishEfficiency= rep(FishEfficiency, 6),
+                               Closure = Out()[[2]]$ClosedSeq, Effort = t(Out()[[2]]$TEffortScaled), ByCatch= Out()[[2]]$BCScaled,
+                               Catch= t(Out()[[2]]$CatchScaled)))
+    df<- rbind(df, data.frame(Type.closure = rep("Dynamic Mosaic",6), #FishToTC= rep(FishToTC, 6),
+                              #FishEfficiency= rep(FishEfficiency, 6),
+                              Closure = Out()[[2]]$ClosedSeq, Effort = t(Out()[[2]]$TEffortScaled_y), ByCatch= Out()[[2]]$BCScaled_y,
+                              Catch= t(Out()[[2]]$CatchScaled_y)))
+    df<- rbind(df, data.frame(Type.closure = rep("Temporal",6), #FishToTC= rep(FishToTC, 6),
+                              #FishEfficiency= rep(FishEfficiency, 6),
+                              Closure = Out()[[3]]$ClosedSeq, Effort = Out()[[3]]$TEffortScaled, ByCatch= Out()[[3]]$BCScaled,
+                              Catch= Out()[[3]]$CatchScaled))
+    df2 <- gather(df, "ByCatch", "Effort", "Catch", key= "quant", value= "value")
+    
+    df2$Type.closure <- as.factor(df2$Type.closure)
+    df2$Type.closure <- factor(df2$Type.closure, levels = c("Stationary Centroid", "Dynamic Centroid",
+                                                            "Stationary Mosaic", "Dynamic Mosaic" , "Temporal" ))
+    return(df2)
+   })
+  # 
+
   myplot2<-function(){
-    if(!is.null(Out()))
-      par(mfrow=c(1,1),mar=(c(5, 4, 4, 2) + 0.1),oma=c(1,1,1,1))
     
-    if(input$by.month=="No"){
-      
-      plot(Out()$ClosedSeq,Out()$ClosedSeq,col="#BB000099",ylim=c(0,1.6),xlab="% of areas closed",type="n",
-           ylab="Relative Amount",cex.main=0.8)
-      
-      lines(Out()$ClosedSeq,Out()$BCScaled,col="#BB000099",lwd=3)
-      lines(Out()$ClosedSeq,Out()$CatchScaled,lwd=3,col="#80008099",type="b",pch=16) # purple
-      lines(Out()$ClosedSeq,Out()$CPUEScaled,lwd=3,col="#458B0099") #green
-      lines(Out()$ClosedSeq,Out()$TEffortScaled,lwd=3,col="#0000FF99") #blue
-      
-      legend("bottomleft",pch=c(-1,16,-1,-1),bty = "n",
-             legend=c("By-Catch","Target-Catch","Fishing Efficiency changes","Effort"),
-             col=c("#BB000099","#80008099","#458B0099","#0000FF99"),lwd=2,cex=0.8)
-      
-      lines(Out()$ClosedSeq,Out()$BCScaled_y,col="#BB000099",lwd=3,lty=2)
-      lines(Out()$ClosedSeq,Out()$CatchScaled_y,lwd=3,col="#80008099",type="b",pch=16,lty=2) # purple
-      lines(Out()$ClosedSeq,Out()$CPUEScaled_y,lwd=3,col="#458B0099",lty=2) #green
-      lines(Out()$ClosedSeq,Out()$TEffortScaled_y,lwd=3,col="#0000FF99",lty=2) #blue
-      
-      legend("topright",bty = "n",
-             legend=c("Stationary closure","Mobile closure"),
-             col="grey30",lty=c(1,2),cex=0.8,lwd=2)
-      
-      for(i in 1:Out()$Nyears){
-        lines(Out()$ClosedSeq,Out()$TBC_tmp[[i]],lwd=1,col="#00000020",lty=1)
-      }
-    }
+        if(!is.null(Out_plot()))
+        par(mfrow=c(1,1),mar=(c(5, 4, 4, 2) + 0.1),oma=c(1,1,1,1))
+      cbPalette <- c("#CC79A7","#009E73","#56B4E9","#E69F00","#999999")
     
-    if(input$by.month=="Yes"){
-      # 
-      plot(c(0,Out()$Months_closed),c(0,Out()$Months_closed),col="#BB000099",ylim=c(0,1.6),xlab="ID Months closed",type="n",
-           ylab="Relative Amount",cex.main=0.8,xaxt='n')
-      axis(side = 1,at = Out()$Months_closed,labels = Out()$Closed_months)
-      
-      lines(c(0,Out()$Months_closed),Out()$BCScaled,col="#BB000099",lwd=3)
-      lines(c(0,Out()$Months_closed),Out()$CatchScaled,lwd=3,col="#80008099",type="b",pch=16) # purple
-      lines(c(0,Out()$Months_closed),Out()$CPUEScaled,lwd=3,col="#458B0099") #green
-      lines(c(0,Out()$Months_closed),Out()$TEffortScaled,lwd=3,col="#0000FF99") #blue
-      
-      legend("bottomleft",pch=c(-1,16,-1,-1),bty = "n",
-             legend=c("By-Catch","Target-Catch","Fishing Efficiency changes","Effort"),
-             col=c("#BB000099","#80008099","#458B0099","#0000FF99"),lwd=2,cex=0.8)
+    p <- ggplot(Out_plot(), aes(x = Closure, y = value,  color=Type.closure))
+    p <- p + geom_hline(yintercept=1, linetype="dashed",
+                        color = "grey40", size=0.4)
+    p <- p + geom_line(alpha=0.8, size=1) +
+      scale_color_manual(values = cbPalette ) +
+      scale_fill_manual(values = cbPalette ) +
+      theme_bw() +
+      theme(legend.position = "top", legend.title = element_blank(), panel.grid.major = element_blank(),
+            panel.grid.minor = element_blank(), legend.text=element_text(size=9), strip.text.y = element_text(angle=0),
+            axis.text.x = element_text(angle = 45, hjust=1, vjust=1)) +
+      ylim(0,1.5)
+    p <- p +  facet_grid ( ~  quant,
+                          labeller = label_wrap_gen(width = 17,multi_line = TRUE))
+    p + labs(y="Relative change") + guides(colour=guide_legend(nrow=2,byrow=TRUE))+
+      scale_x_continuous(sec.axis = sec_axis(~ . *10, name = "Number of months closed"),
+                         name="Proportion of area closed") + theme(axis.text.x.top = element_text(angle = 0, hjust = 0.5))
+    if(input$minimize.by=="ByCatch/Target"){
+      minimize.by="ByCatch/Target"
     }
+    if(input$minimize.by=="Absolute bycatch"){
+      minimize.by="Absolute ByCatch"
+    }
+    if(input$minimize.by=="ByCatch rate"){
+      minimize.by="Bycatch rate"
+    }
+    if(input$FishToTC=="Total Catch"){
+      FishToTC="Total Catch"
+    }
+    if(input$FishToTC=="Total Effort"){
+      FishToTC="Total Effort"
+    }
+    if(input$FishEfficiency=="Changes"){
+      FishEfficiency="Changes"
+    }
+    if(input$FishEfficiency=="Does not change"){
+      FishEfficiency="Does not change"
+    }
+    Title = paste("Minimized by:",minimize.by, ";", "Fishing to reach same:", FishToTC, ";", 
+                  "Fishing efficiency:", FishEfficiency, sep=" ")
+    
+    p<-p + ggtitle(Title)
+    print(p)
   }
   output$plot2 <- renderPlot({
-    if(!is.null(Out()))
+    if(!is.null(Out_plot()))
       myplot2()
   })
-  # 
-  
-  output$downloadLPlot <- downloadHandler(  
+
+
+  output$downloadLPlot <- downloadHandler(
     filename = function() {
       # specify the filename
       paste('L.plot', 'png',sep=".")
     },
     content = function(file) {
       # open the device
-      png(file,width = 1000, height = 1000, pointsize = 22)
+      ggsave(file, device = "png", width=10, height=6)
       # create the plot
-      #plot_out1 <- isolate(output$plot1())
       myplot2()
       # close the device
       dev.off()
     }
   )
-  myplot3<-function(){
-    if(input$by.month=="No"){
-      g<-ggplot(Out()$BC_tot, aes(x=Species, y=Relative_ByCatch, fill=Category, alpha=Area)) +
+  
+   myplot3<-function(){
+    
+      g<-ggplot(Out()[[1]]$BC_tot, aes(x=Species, y=Relative_ByCatch, fill=Category, alpha=Area)) +
         geom_bar(stat="identity",position=position_dodge())+theme_minimal()+
         facet_wrap(~Closure,ncol=1)+ theme(legend.position="top",axis.text.x = element_text(angle = 90)) +
         scale_fill_manual(values = c("mediumorchid3", "turquoise3"))+
         scale_alpha_manual(values = c(0.5, 1))+ ylab("Relative Catch")
-      
-    }
-    if(input$by.month=="Yes"){
-      g<-ggplot(Out()$BC_tot, aes(x=Species, y=Relative_ByCatch, fill=Category)) +
-        geom_bar(stat="identity",position=position_dodge())+theme_minimal()+
-        facet_wrap(~Closure,ncol=1)+ theme(legend.position="top",axis.text.x = element_text(angle = 90)) +
-        scale_fill_manual(values = c("mediumorchid3", "turquoise3")) + ylab("Relative Catch")
-    }
+
     print(g)
   }
   output$plot3<-renderPlot({
     myplot3()
   })
-  output$downloadBPlot <- downloadHandler(
+  output$downloadBPlotC <- downloadHandler(
     filename = function() {
-      paste('Barplot', '.png',sep="")
+      paste('Barplot_Centroid', '.png',sep="")
     },
     content = function(file) {
-      ggsave(file, device = "png", width=8, height=7)
-      
-      #png(file,width = 1000, height = 1000, pointsize = 22)
+      #ggsave(file, device = "png", width=8, height=7)
+
+      png(file,width = 500, height = 500, pointsize = 22)
       myplot3()
+      dev.off()
+    }
+  )
+  myplot8<-function(){
+
+    g<-ggplot(Out()$Mosaic$BC_tot, aes(x=Species, y=Relative_ByCatch, fill=Category, alpha=Area)) +
+      geom_bar(stat="identity",position=position_dodge())+theme_minimal()+
+      facet_wrap(~Closure,ncol=1)+ theme(legend.position="top",axis.text.x = element_text(angle = 90)) +
+      scale_fill_manual(values = c("mediumorchid3", "turquoise3"))+
+      scale_alpha_manual(values = c(0.5, 1))+ ylab("Relative Catch")
+
+      print(g)
+  }
+  output$plot8<-renderPlot({
+    myplot8()
+  })
+  output$downloadBPlotM <- downloadHandler(
+    filename = function() {
+      paste('Barplot_Mosaic', '.png',sep="")
+    },
+    content = function(file) {
+      #ggsave(file, device = "png", width=8, height=7)
+      png(file,width = 500, height = 500, pointsize = 22)
+      myplot8()
+      dev.off()
+    }
+  )
+
+  myplot9<-function(){
+
+      g<-ggplot(Out()$Temporal$BC_tot, aes(x=Species, y=Relative_ByCatch, fill=Category)) +
+        geom_bar(stat="identity",position=position_dodge())+theme_minimal()+
+        facet_wrap(~Closure,ncol=1)+ theme(legend.position="top",axis.text.x = element_text(angle = 90)) +
+        scale_fill_manual(values = c("mediumorchid3", "turquoise3")) + ylab("Relative Catch")
+
+    print(g)
+  }
+  output$plot9<-renderPlot({
+    myplot9()
+  })
+  output$downloadBPlotT <- downloadHandler(
+    filename = function() {
+      paste('Barplot_Temporal', '.png',sep="")
+    },
+    content = function(file) {
+      #ggsave(file, device = "png", width=8, height=7)
+      png(file,width = 500, height = 500, pointsize = 22)
+      myplot9()
       dev.off()
     }
   )
   ###################### Mapping
   Tmp<-reactive({
-    N<-length(Out()$ResArea)
-    ResArea<-Out()$ResArea[[N]]
+    N<-length(Out()[[1]]$ResArea)
+    ResArea<-Out()[[1]]$ResArea[[N]]
     ResArea[ResArea$NewEffort==0,"NewEffort"]<-NA
     tmp<-melt(ResArea,id.vars = c("Lat","Lon","Closure"))
     tmp$Closure<-as.factor(tmp$Closure)
+    #tmp$ByCatch
     return(tmp)
   })
   myplot4<-function(){
-    if(input$by.month=="No"){
-      g<-dataframe()$worldmap+
-        geom_tile(data=Tmp()[Tmp()$variable=="NewEffort",], mapping=aes(Lon, Lat, fill = value)) +
-        facet_grid(Closure~variable) +
-        scale_fill_gradient(low = "white", high = "red")+
-        theme(legend.title = element_blank(),legend.position = "top",legend.text = element_text(size = 8),strip.text.y = element_blank())
-      gg<-dataframe()$worldmap+
-        geom_tile(data=Tmp()[Tmp()$variable=="CPUE_Target",], mapping=aes(Lon, Lat, fill = value)) +
-        facet_grid(Closure~variable) +
-        scale_fill_gradient(low = "white", high = "red")+
-        theme(legend.title = element_blank(),legend.position = "top",axis.ticks = element_blank(),axis.title.y = element_blank(),axis.text.y=element_blank(),legend.text = element_text(size = 8),strip.text.y = element_blank())
-      ggg<-dataframe()$worldmap+
-        geom_tile(data=Tmp()[Tmp()$variable=="CPUE_ByCatch",], mapping=aes(Lon, Lat, fill = value)) +
-        facet_grid(Closure~variable) +
-        scale_fill_gradient(low = "white", high = "red")+
-        theme(legend.title = element_blank(),legend.position = "top",axis.ticks = element_blank(),axis.title.y = element_blank(),axis.text.y=element_blank(),legend.text = element_text(size = 8))
-      G<-grid.arrange(g,gg,ggg,ncol=3)
-
-      if(input$by.month=="Yes"){
-        print("No Area plot")
-      }
-    }
+    g<-dataframe()$worldmap +
+      geom_tile(data=Tmp()[Tmp()$variable=="NewEffort",], mapping=aes(Lon, Lat, fill = value)) +
+      facet_grid(Closure~variable) +
+      scale_fill_gradient(low = "white", high = "red")+
+      theme(legend.title = element_blank(),legend.position = "top",
+            legend.text = element_text(size = 10),strip.text.y = element_blank(),
+            plot.margin = unit(c(0, 0, 0, 0), "lines"),
+            text = element_text(size=15))
+    gg<-dataframe()$worldmap+
+      geom_tile(data=Tmp()[Tmp()$variable=="ByCatch",], mapping=aes(Lon, Lat, fill = value)) +
+      facet_grid(Closure~variable) +
+      scale_fill_gradient(low = "white", high = "red")+
+      theme(legend.title = element_blank(),legend.position = "top",
+            axis.ticks = element_blank(),axis.title.y = element_blank(),
+            axis.text.y=element_blank(),legend.text = element_text(size = 10),
+            strip.text.y = element_blank(), 
+            plot.margin = unit(c(0, 0, 0, 0), "lines"),
+            text = element_text(size=15))
+    ggg<-dataframe()$worldmap+
+      geom_tile(data=Tmp()[Tmp()$variable=="CPUE_ByCatch",], mapping=aes(Lon, Lat, fill = value)) +
+      facet_grid(Closure~variable) +
+      scale_fill_gradient(low = "white", high = "red")+
+      theme(legend.title = element_blank(),legend.position = "top",
+            axis.ticks = element_blank(),axis.title.y = element_blank(),
+            axis.text.y=element_blank(),legend.text = element_text(size = 10),
+            plot.margin = unit(c(0, 0, 0, 0), "lines"),
+            text = element_text(size=15))
+    gggg<-dataframe()$worldmap+
+      geom_tile(data=Tmp()[Tmp()$variable=="Proportion",], mapping=aes(Lon, Lat, fill = value)) +
+      facet_grid(Closure~variable) +
+      scale_fill_gradient(low = "white", high = "red")+
+      theme(legend.title = element_blank(),legend.position = "top",
+            axis.ticks = element_blank(),axis.title.y = element_blank(),
+            axis.text.y=element_blank(),legend.text = element_text(size = 10),
+            plot.margin = unit(c(0, 0, 0, 0), "lines"),
+            text = element_text(size=15))
+    G<-grid.arrange(g,gg,ggg,gggg,ncol=4)
   }
   output$plot4<-renderPlot({
     #
@@ -873,12 +974,76 @@ server <- function(input, output, session) {
   })
   output$downloadCMap <- downloadHandler(
     filename = function() {
-      paste('OutMaps', '.png',sep="")
+      paste('OutMapsC', '.png',sep="")
     },
     content = function(file) {
       #ggsave(file, device = "png", width=11, height=8.5)
-      png(file,width = 1000, height = 1000, pointsize = 22)
+      png(file, width = 1000, height = 1000, pointsize = 12)
       myplot4()
+      dev.off()
+    }
+  )
+  #######################################################
+  Tmp2<-reactive({
+    N<-length(Out()[[2]]$ResArea)
+    ResArea<-Out()[[2]]$ResArea[[N]]
+    ResArea[ResArea$NewEffort==0,"NewEffort"]<-NA
+    tmp<-melt(ResArea,id.vars = c("Lat","Lon","Closure"))
+    tmp$Closure<-as.factor(tmp$Closure)
+    #tmp$ByCatch
+    return(tmp)
+  })
+  myplot7<-function(){
+    g<-dataframe()$worldmap +
+      geom_tile(data=Tmp2()[Tmp2()$variable=="NewEffort",], mapping=aes(Lon, Lat, fill = value)) +
+      facet_grid(Closure~variable) +
+      scale_fill_gradient(low = "white", high = "red")+
+      theme(legend.title = element_blank(),legend.position = "top",
+            legend.text = element_text(size = 10),strip.text.y = element_blank(),
+            plot.margin = unit(c(0, 0, 0, 0), "lines"),
+            text = element_text(size=15))
+    gg<-dataframe()$worldmap+
+      geom_tile(data=Tmp2()[Tmp2()$variable=="ByCatch",], mapping=aes(Lon, Lat, fill = value)) +
+      facet_grid(Closure~variable) +
+      scale_fill_gradient(low = "white", high = "red")+
+      theme(legend.title = element_blank(),legend.position = "top",
+            axis.ticks = element_blank(),axis.title.y = element_blank(),
+            axis.text.y=element_blank(),legend.text = element_text(size = 10),
+            strip.text.y = element_blank(), 
+            plot.margin = unit(c(0, 0, 0, 0), "lines"),
+            text = element_text(size=15))
+    ggg<-dataframe()$worldmap+
+      geom_tile(data=Tmp2()[Tmp2()$variable=="CPUE_ByCatch",], mapping=aes(Lon, Lat, fill = value)) +
+      facet_grid(Closure~variable) +
+      scale_fill_gradient(low = "white", high = "red")+
+      theme(legend.title = element_blank(),legend.position = "top",
+            axis.ticks = element_blank(),axis.title.y = element_blank(),
+            axis.text.y=element_blank(),legend.text = element_text(size = 10),
+            plot.margin = unit(c(0, 0, 0, 0), "lines"),
+            text = element_text(size=15))
+    gggg<-dataframe()$worldmap+
+      geom_tile(data=Tmp2()[Tmp2()$variable=="Proportion",], mapping=aes(Lon, Lat, fill = value)) +
+      facet_grid(Closure~variable) +
+      scale_fill_gradient(low = "white", high = "red")+
+      theme(legend.title = element_blank(),legend.position = "top",
+            axis.ticks = element_blank(),axis.title.y = element_blank(),
+            axis.text.y=element_blank(),legend.text = element_text(size = 10),
+            plot.margin = unit(c(0, 0, 0, 0), "lines"),
+            text = element_text(size=15))
+    G<-grid.arrange(g,gg,ggg,gggg,ncol=4)
+  }
+  output$plot7<-renderPlot({
+    #
+    myplot7()
+  })
+  output$downloadMMap <- downloadHandler(
+    filename = function() {
+      paste('OutMapsM', '.png',sep="")
+    },
+    content = function(file) {
+      #ggsave(file, device = "png", width=11, height=8.5)
+      png(file,width = 1000, height = 1000, pointsize = 12)
+      myplot7()
       dev.off()
     }
   )
@@ -886,7 +1051,7 @@ server <- function(input, output, session) {
   myplot5<-function(){
     ggcorrplot(round(cor(dataframe()$D[,-c(1:4)]), 1), hc.order = FALSE, type = "lower",lab=TRUE,
                outline.col = "white")
-    
+
   }
   output$plot5<-renderPlot({
     myplot5()
@@ -897,7 +1062,7 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       ggsave(file, device = "png", width=11, height=8.5)
-      
+
       #png(file,width = 1000, height = 1000, pointsize = 22)
       myplot5()
       #dev.off()
@@ -914,7 +1079,7 @@ server <- function(input, output, session) {
     axis(side = 1, at = c(1:dataframe()$NT),labels = c(dataframe()$TNames),las=2)
     title(main="Target",line = 0.5)
     legend("topright",col=c("blue","red"),pch=19,legend = c("Unweighted","Weighted"))
-    
+
     plot(as.numeric(dataframe()$D %>% summarise(across(.cols=all_of(dataframe()$BCNames),sum)))/
            sum(dataframe()$D[,dataframe()$BCNames]),xaxt='n',
          col="blue",pch=19,xlab="",ylab="")
@@ -922,7 +1087,7 @@ server <- function(input, output, session) {
              sum(dataframe()$D_w[,dataframe()$BCNames]),col="red",pch=19)
     axis(side = 1, at = c(1:dataframe()$NBC),labels = c(dataframe()$BCNames),las=2)
     title(main="Bycatch",line = 0.5)
-    
+
   }
   output$plot6<-renderPlot({
     myplot6()
@@ -940,16 +1105,16 @@ server <- function(input, output, session) {
   # Save state
   output$SaveRDS <- downloadHandler(
     filename = function() {
-      
+
       paste0(input$Fishery_name,Out()$OutID,".rds")
     },
     content = function(file) {
       data_out <- isolate(Out())
-      
+
       saveRDS(data_out, file)
-    } 
+    }
   )
-  
+
 }
 
 shinyApp(ui=ui, server=server)
