@@ -341,7 +341,7 @@ DoCalcs<-function(D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffo
     BC_D_rel<-as.data.frame(BC_D_rel); BC_S_rel<-as.data.frame(BC_S_rel)
     names(BC_S_rel)<-names(BC_D_rel)<-c(TNames,BCNames)
     BC_S_rel$Closure<-as.factor(ClosedSeq[-1]);BC_D_rel$Closure<-as.factor(ClosedSeq[-1])
-    BC_S_rel$Area<-as.factor("Static");BC_D_rel$Area<-as.factor("Mobile")
+    BC_S_rel$Area<-as.factor("Static");BC_D_rel$Area<-as.factor("Dynamic")
     BC_tot<-rbind(BC_S_rel,BC_D_rel)
     BC_tot<-melt(BC_tot,value.name = "BCN")
     BC_tot$Relative_ByCatch<-BC_tot$BCN-1
