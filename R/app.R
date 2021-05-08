@@ -320,7 +320,7 @@ DoCalcs<-function(D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffo
     
     ######### for barplot
     #################################################################################
-    # data needed comes from BC, list where each element is a year, and the last one is the total (stationary closure)
+    # data needed comes from BC, list where each element is a year, and the last one is the total (Static closure)
     # rows are the closures and columns the species
     nPol<-length(BC[[Nyears+1]][,1])
     nSpec<-length(BC[[Nyears+1]][1,])+length(TC[[Nyears+1]][1,])
@@ -341,7 +341,7 @@ DoCalcs<-function(D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffo
     BC_D_rel<-as.data.frame(BC_D_rel); BC_S_rel<-as.data.frame(BC_S_rel)
     names(BC_S_rel)<-names(BC_D_rel)<-c(TNames,BCNames)
     BC_S_rel$Closure<-as.factor(ClosedSeq[-1]);BC_D_rel$Closure<-as.factor(ClosedSeq[-1])
-    BC_S_rel$Area<-as.factor("Stationary");BC_D_rel$Area<-as.factor("Mobile")
+    BC_S_rel$Area<-as.factor("Static");BC_D_rel$Area<-as.factor("Mobile")
     BC_tot<-rbind(BC_S_rel,BC_D_rel)
     BC_tot<-melt(BC_tot,value.name = "BCN")
     BC_tot$Relative_ByCatch<-BC_tot$BCN-1
@@ -420,7 +420,7 @@ DoCalcs<-function(D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffo
     
     ######### for barplot
     #################################################################################
-    # data needed comes from BC, list where each element is a year, and the last one is the total (stationary closure)
+    # data needed comes from BC, list where each element is a year, and the last one is the total (Static closure)
     # rows are the closures and columns the species
     nPol<-length(BC)
     nSpec<-ncol(BC[[1]])+ncol(TC[[1]])
@@ -438,7 +438,7 @@ DoCalcs<-function(D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffo
     BC_S_rel<-as.data.frame(BC_S_rel)
     colnames(BC_S_rel)<-c(TNames,BCNames)
     BC_S_rel$Closure<-as.factor(Months_closed)
-    BC_S_rel$Month<-as.factor("Stationary")
+    BC_S_rel$Month<-as.factor("Static")
     BC_tot<-melt(BC_S_rel,value.name = "BCN")
     BC_tot$Relative_ByCatch<-BC_tot$BCN-1 
     names(BC_tot)[3]<-"Species"
@@ -747,7 +747,7 @@ server <- function(input, output, session) {
 
    Out_plot<-eventReactive(input$plot2, {
     df <- NULL
-    df <- rbind(df, data.frame(Type.closure = rep("Stationary Centroid",6), #FishToTC= rep(FishToTC, 6),
+    df <- rbind(df, data.frame(Type.closure = rep("Static Centroid",6), #FishToTC= rep(FishToTC, 6),
                                #FishEfficiency= rep(FishEfficiency, 6),
                                Closure = Out()[[1]]$ClosedSeq, Effort = t(Out()[[1]]$TEffortScaled), ByCatch= Out()[[1]]$BCScaled,
                                Catch= t(Out()[[1]]$CatchScaled)))
@@ -755,7 +755,7 @@ server <- function(input, output, session) {
                               #FishEfficiency= rep(FishEfficiency, 6),
                               Closure = Out()[[1]]$ClosedSeq, Effort = t(Out()[[1]]$TEffortScaled_y), ByCatch= Out()[[1]]$BCScaled_y,
                               Catch= t(Out()[[1]]$CatchScaled_y)))
-    df <- rbind(df, data.frame(Type.closure = rep("Stationary Mosaic",6), #FishToTC= rep(FishToTC, 6),
+    df <- rbind(df, data.frame(Type.closure = rep("Static Mosaic",6), #FishToTC= rep(FishToTC, 6),
                                #FishEfficiency= rep(FishEfficiency, 6),
                                Closure = Out()[[2]]$ClosedSeq, Effort = t(Out()[[2]]$TEffortScaled), ByCatch= Out()[[2]]$BCScaled,
                                Catch= t(Out()[[2]]$CatchScaled)))
@@ -770,8 +770,8 @@ server <- function(input, output, session) {
     df2 <- gather(df, "ByCatch", "Effort", "Catch", key= "quant", value= "value")
     
     df2$Type.closure <- as.factor(df2$Type.closure)
-    df2$Type.closure <- factor(df2$Type.closure, levels = c("Stationary Centroid", "Dynamic Centroid",
-                                                            "Stationary Mosaic", "Dynamic Mosaic" , "Temporal" ))
+    df2$Type.closure <- factor(df2$Type.closure, levels = c("Static Centroid", "Dynamic Centroid",
+                                                            "Static Mosaic", "Dynamic Mosaic" , "Temporal" ))
     return(df2)
    })
   # 
