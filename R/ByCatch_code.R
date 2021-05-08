@@ -221,7 +221,7 @@ GlobalEffort <- sum(D$Effort) # total Effort
 # it will not be a square, but the areas closest to a centroid if mosaic=F
 # if Mosaic = T, quadrants where by-catch is minimized can be closed independently, they don't have to be connected
 # if By.month = T, one to five months are closed instead of an area
-
+# weights, if TRUE the areas area find based on weighted catch and bycatch, if FALSE it uses raw numbers
 FindClose <- function(NClose, D, weights=TRUE, minimize.by="prop", mosaic=F, by.month=FALSE){
   if (weights == TRUE){
     Bycatch <- D$TBC.w
@@ -306,13 +306,14 @@ FindClose <- function(NClose, D, weights=TRUE, minimize.by="prop", mosaic=F, by.
   }
   return(list(Closed, M)) # matrix of TRUES and FALSES
 }
-#Closed<-FindClose(NClose=50,weights=TRUE, D,minimize.by="N",mosaic=F,by.month=FALSE);sum(Closed[[1]])
+#Closed<-FindClose(NClose=10,weights=TRUE, D=D2,minimize.by="prop",mosaic=F,by.month=FALSE);sum(Closed[[1]])
 ###################################################################################
 # FishToTC = T , fish to reach the same total target catch, effort can change
 # FishToTC = F , total target catch can change but effort remains the same, 
 # effort inside the closed area moves to open areas proportional to the effort already in those open quadrants 
 # FishEfficiency = T  CPUE of the target species can change in open areas based in arbitrary exploitation rate
 # FishEfficiency = F  CPUE of the target species is the same in each open quadrant, CPUe doesn't change 
+# all calculations in the Calculate function are based in raw numbers, not weighted, it is based in unweighted CPUEs
 Calculate <- function(Closed,D,FishToTC,FishEfficiency, hr, by.month) { #Closed (matrix)comes from the previous function
   
   CPUE <- D$Target/D$Effort # CPUE target species
@@ -419,7 +420,7 @@ Calculate <- function(Closed,D,FishToTC,FishEfficiency, hr, by.month) { #Closed 
               NewCatch=NewCatch, New_TCatch_byspecies=New_TCatch_byspecies,
               NewEffort=NewEffort, TotalBcByArea=TotalBcByArea))
 }
-# Calculate(Closed=Closed,D,FishToTC=TRUE,FishEfficiency=FALSE, hr=0.1, by.month=FALSE)
+#x<-Calculate(Closed=Closed,D=D2,FishToTC=TRUE,FishEfficiency=FALSE, hr=0.1, by.month=FALSE)
 ################################################
 # Do calculations and plots
 # ClosedSeq = seq(0,.5,.1) (sequence of proportions of areas to close) can change
@@ -466,7 +467,7 @@ DoCalcs <- function(D, FishToTC, FishEfficiency, hr, weights=TRUE, ClosedSeq=seq
         
         Res <- Calculate(Closed, D=D2, FishToTC, FishEfficiency, hr, by.month=FALSE)
         Res_a <- data.frame(Lat=D2$Lat, Lon=D2$Lon, NewEffort=Res$NewEffort,
-                          CPUE_Target=Res$NewCatch/(Res$NewEffort*1E3),
+                          CPUE_Target=Res$NewCatch/(Res$NewEffort),
                           CPUE_ByCatch= Res$TotalBcByArea/(Res$NewEffort),
                           Closure=ClosedSeq[i])
         BC[[y]][i,] <- as.matrix(Res$ByCatch) 
@@ -484,6 +485,7 @@ DoCalcs <- function(D, FishToTC, FishEfficiency, hr, weights=TRUE, ClosedSeq=seq
       BC_w <- list()
       TC_w <- list()
       
+      # if I want to plot the weighted bycatch I have to multiply again for the tmp.weights because in "Calculate" we use raw numbers
       for(i in 1:c(Nyears+1)){
         BC_w[[i]] <- sweep(BC[[i]], MARGIN=2, as.numeric(rel_wb), `*`) # weighted by-Catch
         TC_w[[i]] <- sweep(TC[[i]], MARGIN=2, as.numeric(rel_wt), `*`) # weighted Target Catch
@@ -522,7 +524,7 @@ DoCalcs <- function(D, FishToTC, FishEfficiency, hr, weights=TRUE, ClosedSeq=seq
     
     ######### for barplot
     #################################################################################
-    # data needed comes from BC, list where each element is a year, and the last one is the total (stationary closure)
+    # data needed comes from BC, list where each element is a year, and the last one is the total (Static closure)
     # rows are the closures and columns the species
     nPol<-length(BC_w[[Nyears+1]][,1])
     nSpec<-length(BC_w[[Nyears+1]][1,])+length(TC_w[[Nyears+1]][1,])
@@ -543,7 +545,7 @@ DoCalcs <- function(D, FishToTC, FishEfficiency, hr, weights=TRUE, ClosedSeq=seq
     BC_D_rel<-as.data.frame(BC_D_rel); BC_S_rel<-as.data.frame(BC_S_rel)
     names(BC_S_rel)<-names(BC_D_rel)<-c(TNames,BCNames)
     BC_S_rel$Closure<-as.factor(ClosedSeq[-1]);BC_D_rel$Closure<-as.factor(ClosedSeq[-1])
-    BC_S_rel$Area<-as.factor("Stationary");BC_D_rel$Area<-as.factor("Mobile")
+    BC_S_rel$Area<-as.factor("Static");BC_D_rel$Area<-as.factor("Dynamic")
     BC_tot<-rbind(BC_S_rel,BC_D_rel)
     BC_tot<-melt(BC_tot,value.name = "BCN")
     BC_tot$Relative_ByCatch<-BC_tot$BCN-1
@@ -625,7 +627,7 @@ DoCalcs <- function(D, FishToTC, FishEfficiency, hr, weights=TRUE, ClosedSeq=seq
     
     ######### for barplot
     #################################################################################
-    # data needed comes from BC, list where each element is a year, and the last one is the total (stationary closure)
+    # data needed comes from BC, list where each element is a year, and the last one is the total (Static closure)
     # rows are the closures and columns the species
     nPol<-length(BC)
     nSpec<-ncol(BC_w[[1]])+ncol(TC_w[[1]])
@@ -643,7 +645,7 @@ DoCalcs <- function(D, FishToTC, FishEfficiency, hr, weights=TRUE, ClosedSeq=seq
     BC_S_rel<-as.data.frame(BC_S_rel)
     colnames(BC_S_rel)<-c(TNames,BCNames)
     BC_S_rel$Closure<-as.factor(Months_closed)
-    BC_S_rel$Month<-as.factor("Stationary")
+    BC_S_rel$Month<-as.factor("Static")
     BC_tot<-melt(BC_S_rel,value.name = "BCN")
     BC_tot$Relative_ByCatch<-BC_tot$BCN-1 
     names(BC_tot)[3]<-"Species"
@@ -678,7 +680,7 @@ DoCalcs <- function(D, FishToTC, FishEfficiency, hr, weights=TRUE, ClosedSeq=seq
     lines(ClosedSeq,TEffortScaled_y,lwd=3,col="#0000FF99",lty=2) #blue
     
     legend("topright",bty = "n",
-           legend=c("Stationary closure","Mobile closure"),
+           legend=c("Static closure","Dynamic closure"),
            col="grey30",lty=c(1,2),cex=0.8,lwd=2)
     if(tmp.lines==TRUE){
       for(i in 1:Nyears){
