@@ -118,7 +118,7 @@ Calculate<-function(Closed,D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=G
   T_CPUE<-D %>%
     rowwise() %>%
     transmute(across(all_of(TNames),function(x)x/Effort)) %>%
-    data.frame
+    as.data.frame()
   i<-which(Closed[[1]]==FALSE) # open area or open months
   
   # TotAbu=sum(D$target*D$Effort)/hr
@@ -204,7 +204,7 @@ Calculate<-function(Closed,D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=G
   BcCPUE<-D %>% 
     rowwise() %>% 
     transmute(across(all_of(BCNames),function(x)x/Effort)) %>% 
-    data.frame
+    as.data.frame()
   
   BcByArea<-BcCPUE*NewEffort 
   
@@ -338,7 +338,8 @@ DoCalcs<-function(D,Tweights,BCweights,GlobalTC=GlobalTC,GlobalEffort=GlobalEffo
       BC_D_rel[i,]<-BC_D_rel[i,]/BC_D[1,]
     }
     
-    BC_D_rel<-as.data.frame(BC_D_rel); BC_S_rel<-as.data.frame(BC_S_rel)
+    BC_D_rel<-as.data.frame(BC_D_rel); BC_S_rel<-as.
+    (BC_S_rel)
     names(BC_S_rel)<-names(BC_D_rel)<-c(TNames,BCNames)
     BC_S_rel$Closure<-as.factor(ClosedSeq[-1]);BC_D_rel$Closure<-as.factor(ClosedSeq[-1])
     BC_S_rel$Area<-as.factor("Static");BC_D_rel$Area<-as.factor("Dynamic")
